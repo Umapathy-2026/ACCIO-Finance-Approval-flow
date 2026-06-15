@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+{% block title %}User Management - ACCIO{% endblock %}
+{% block content %}
+<div style="margin-bottom:28px;display:flex;align-items:center;justify-content:space-between;">
+    <div>
+        <h1 style="font-size:22px;font-weight:700;color:var(--text);margin:0;">Users</h1>
+        <p style="font-size:14px;color:var(--text-muted);margin-top:4px">Manage system users and their roles</p>
+    </div>
+    <button class="btn-primary" onclick="document.getElementById('createUserModal').classList.add('active')">
+        <i data-lucide="plus" style="width:16px;height:16px;"></i>
+        Add User
+    </button>
+</div>
+
+<div class="card" style="padding:0;overflow:hidden;">
+    {% if users %}
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Assigned Approver</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            <tr>
+                <td style="font-weight:500;">{{ user.display_name }}</td>
+                <td style="color:var(--text-muted);">{{ user.email }}</td>
+                <td><span class="role-badge" style="text-transform:capitalize;font-size:12px;">{{ user.role }}</span></td>
+                <td style="color:var(--text-muted);font-size:13px;">{{ user.manager.display_name if user.manager else '—' }}</td>
+                <td>
+                    {% if user.is_active %}
+                    <span class="badge badge-green">Active</span>
+                    {% else %}
+                    <span class="badge badge-red">Inactive</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                        <button class="btn-secondary" style="padding:4px 8px;font-size:11px;" onclick="openEditModal({{ user.id }}, '{{ user.display_name|e }}', '{{ user.email|e }}', '{{ user.role }}', {{ user.manager_id if user.manager_id else 'null' }}, {{ 'true' if user.is_active else 'false' }})">
+                            <i data-lucide="edit" style="width:11px;height:11px;"></i>
+                            Edit
+                        </button>
+                        {% if user.locked_until and user.locked_until > now %}
+                        <form method="POST" action="{{ url_for('admin.unlock_user', user_id=user.id) }}" style="display:inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn-secondary" style="padding:4px 8px;font-size:11px;background:#fef3c7;border-color:#fbbf24;">
+                                <i data-lucide="unlock" style="width:11px;height:11px;"></i>
+                                Unlock
+                            </button>
+                        </form>
+                        {% endif %}
+                        {% if user.is_active and user.role != 'admin' %}
+                        <button class="btn-danger" style="padding:4px 8px;font-size:11px;" onclick="deactivateUser({{ user.id }}, '{{ user.display_name|e }}')">
+                            <i data-lucide="user-x" style="width:11px;height:11px;"></i>
+                            Deactivate
+                        </button>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div style="text-align:center;padding:64px 32px;color:var(--text-muted);">
+        <i data-lucide="users" style="width:40px;height:40px;color:var(--text-faint);margin-bottom:16px;"></i>
+        <p style="font-size:15px;font-weight:500;margin-bottom:6px;">No users yet</p>
+        <p style="font-size:13px;">Create your first user to get started.</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Create User Modal -->
+<div class="modal-overlay" id="createUserModal">
+    <div class="modal" style="width:520px;">
+        <h3 class="modal-title">Create New User</h3>
+        <p class="modal-desc">Add a new user to the system</p>
+        <form method="POST" action="{{ url_for('admin.users') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                <div style="margin-bottom:16px;">
+                    <label class="form-label" for="display_name">Full Name <span style="color:#dc2626;">*</span></label>
+                    <input type="text" id="display_name" name="display_name" class="form-input" required>
+                </div>
+                <div style="margin-bottom:16px;">
+                    <label class="form-label" for="email">Email <span style="color:#dc2626;">*</span></label>
+                    <input type="email" id="email" name="email" class="form-input" required>
+                </div>
+            </div>
+            <div style="margin-bottom:16px;">
+                <label class="form-label" for="password">Password <span style="color:#dc2626;">*</span></label>
+                <input type="password" id="password" name="password" class="form-input" required>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                <div style="margin-bottom:16px;">
+                    <label class="form-label" for="role">Role</label>
+                    <select id="role" name="role" class="form-input">
+                        <option value="user">User</option>
+                        <option value="approver">Approver</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <div style="margin-bottom:16px;">
+                    <label class="form-label" for="manager_id">Assigned Approver</label>
+                    <select id="manager_id" name="manager_id" class="form-input">
+                        <option value="">None</option>
+                        {% for approver in approvers %}
+                        <option value="{{ approver.id }}">{{ approver.display_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px;">
+                <button type="button" class="btn-secondary" onclick="document.getElementById('createUserModal').classList.remove('active')">Cancel</button>
+                <button type="submit" class="btn-primary">Create User</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit User Modal -->
+<div class="modal-overlay" id="editUserModal">
+    <div class="modal" style="width:520px;">
+        <h3 class="modal-title">Edit User</h3>
+        <p class="modal-desc">Update user details and permissions</p>
+        <form method="POST" id="editUserForm">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div style="margin-bottom:16px;">
+                <label class="form-label" for="edit_name">Full Name</label>
+                <input type="text" id="edit_name" name="display_name" class="form-input">
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                <div style="margin-bottom:16px;">
+                    <label class="form-label" for="edit_role">Role</label>
+                    <select id="edit_role" name="role" class="form-input">
+                        <option value="user">User</option>
+                        <option value="approver">Approver</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <div style="margin-bottom:16px;">
+                    <label class="form-label" for="edit_manager">Assigned Approver</label>
+                    <select id="edit_manager" name="manager_id" class="form-input">
+                        <option value="">None</option>
+                        {% for approver in approvers %}
+                        <option value="{{ approver.id }}">{{ approver.display_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div style="margin-bottom:16px;">
+                <label class="form-label" for="edit_password">New Password (leave blank to keep current)</label>
+                <input type="password" id="edit_password" name="password" class="form-input" placeholder="Enter new password">
+            </div>
+            <div style="margin-bottom:16px;display:flex;align-items:center;gap:8px;">
+                <input type="checkbox" id="edit_active" name="is_active" style="width:16px;height:16px;">
+                <label for="edit_active" style="font-size:14px;">User is active</label>
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;">
+                <button type="button" class="btn-secondary" onclick="document.getElementById('editUserModal').classList.remove('active')">Cancel</button>
+                <button type="submit" class="btn-primary">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Deactivation Interstitial Modal -->
+<div class="modal-overlay" id="deactivateModal">
+    <div class="modal" style="width:480px;">
+        <h3 class="modal-title" id="deactivateTitle">Deactivate User</h3>
+        <p id="deactivateDesc" class="modal-desc"></p>
+        <form method="POST" id="deactivateForm">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div id="reassignSection" style="margin-bottom:16px;display:none;">
+                <label class="form-label" for="reassign_to">Reassign open tickets to</label>
+                <select id="reassign_to" name="reassign_to" class="form-input">
+                    <option value="">Select approver...</option>
+                    {% for approver in approvers %}
+                    <option value="{{ approver.id }}">{{ approver.display_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;">
+                <button type="button" class="btn-secondary" onclick="document.getElementById('deactivateModal').classList.remove('active')">Cancel</button>
+                <button type="submit" class="btn-danger">Deactivate</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openEditModal(id, name, email, role, managerId, isActive) {
+    document.getElementById('editUserForm').action = '/admin/users/' + id + '/edit';
+    document.getElementById('edit_name').value = name;
+    document.getElementById('edit_role').value = role;
+    document.getElementById('edit_manager').value = managerId || '';
+    document.getElementById('edit_active').checked = isActive;
+    document.getElementById('edit_password').value = '';
+    document.getElementById('editUserModal').classList.add('active');
+}
+
+function deactivateUser(userId, displayName) {
+    fetch('/admin/users/' + userId + '/deactivate-check')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var modal = document.getElementById('deactivateModal');
+            document.getElementById('deactivateTitle').textContent = 'Deactivate ' + displayName;
+            if (data.has_open_tickets) {
+                document.getElementById('deactivateDesc').innerHTML = 'This user has <strong>' + data.open_ticket_count + '</strong> open tickets. Reassign them before deactivating.';
+                document.getElementById('reassignSection').style.display = 'block';
+                var sel = document.getElementById('reassign_to');
+                sel.innerHTML = '<option value="">Select approver...</option>';
+                data.approvers.forEach(function(a) {
+                    sel.innerHTML += '<option value="' + a.id + '">' + a.name + '</option>';
+                });
+            } else {
+                document.getElementById('deactivateDesc').textContent = 'Are you sure you want to deactivate ' + displayName + '?';
+                document.getElementById('reassignSection').style.display = 'none';
+            }
+            document.getElementById('deactivateForm').action = '/admin/users/' + userId + '/deactivate';
+            modal.classList.add('active');
+        });
+}
+</script>
+{% endblock %}

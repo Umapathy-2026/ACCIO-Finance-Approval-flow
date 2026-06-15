@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Create Ticket - ACCIO{% endblock %}
+{% block content %}
+<div style="margin-bottom:28px;">
+    <h1 style="font-size:22px;font-weight:700;color:var(--text)">Create Ticket</h1>
+    <p style="font-size:14px;color:var(--text-muted);margin-top:4px">Submit a new issue or request for processing</p>
+</div>
+
+<div class="card" style="max-width:800px;">
+    <form method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div style="margin-bottom:20px;">
+            <label class="form-label" for="form_id">Issue Type <span style="color:#dc2626;">*</span></label>
+            <select id="form_id" name="form_id" class="form-input" required onchange="loadFormFields(this.value)">
+                <option value="">Select an issue type...</option>
+                {% for form in forms %}
+                <option value="{{ form.id }}">{{ form.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div id="dynamic-fields"></div>
+
+        <div style="margin-bottom:20px;">
+            <label class="form-label" for="subject">Subject <span style="color:#dc2626;">*</span></label>
+            <input type="text" id="subject" name="subject" class="form-input" placeholder="Brief description of the issue" required>
+        </div>
+
+        <div style="margin-bottom:20px;">
+            <label class="form-label" for="description">Description</label>
+            <textarea id="description" name="description" class="form-input" placeholder="Provide detailed information about the issue..." rows="4"></textarea>
+        </div>
+
+        <div style="margin-bottom:24px;">
+            <label class="form-label">Attachment</label>
+            <div class="file-upload" onclick="document.getElementById('attachment').click()">
+                <i data-lucide="upload" style="width:20px;height:20px;color:var(--text-muted);margin-bottom:8px;"></i>
+                <p style="font-size:13px;color:var(--text-muted);margin:0;">
+                    <span id="attachment-name" style="color:var(--text-faint);">Click to upload a file</span>
+                </p>
+                <p style="font-size:11px;color:var(--text-faint);margin:4px 0 0;">PDF, DOC, XLS, images up to 10MB</p>
+            </div>
+            <input type="file" id="attachment" name="attachment" style="display:none;" onchange="handleFileSelect('attachment', 'attachment-name')">
+        </div>
+
+        <div style="display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--border);padding-top:20px;">
+            <a href="{{ url_for('req.dashboard') }}" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn-primary">
+                <i data-lucide="send" style="width:16px;height:16px;"></i>
+                Submit Ticket
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+function loadFormFields(formId) {
+    var container = document.getElementById('dynamic-fields');
+    if (!formId) {
+        container.innerHTML = '';
+        return;
+    }
+
+    container.innerHTML = '<p style="color:var(--text-muted);font-size:14px;padding:16px 0;">Loading fields...</p>';
+
+    fetch('/api/form-fields/' + formId)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var html = '';
+            data.fields.forEach(function(field) {
+                var required = field.required ? ' <span style="color:#dc2626;">*</span>' : '';
+                html += '<div style="margin-bottom:20px;">';
+                html += '<label class="form-label" for="field-' + field.name + '">' + field.label + required + '</label>';
+
+                if (field.type === 'text' || field.type === 'email') {
+                    html += '<input type="' + field.type + '" id="field-' + field.name + '" name="' + field.name + '" class="form-input" placeholder="' + field.label + '"' + (field.required ? ' required' : '') + '>';
+                } else if (field.type === 'number') {
+                    html += '<input type="number" id="field-' + field.name + '" name="' + field.name + '" class="form-input" placeholder="0.00" step="0.01"' + (field.required ? ' required' : '') + '>';
+                } else if (field.type === 'date') {
+                    html += '<input type="date" id="field-' + field.name + '" name="' + field.name + '" class="form-input"' + (field.required ? ' required' : '') + '>';
+                } else if (field.type === 'dropdown') {
+                    html += '<select id="field-' + field.name + '" name="' + field.name + '" class="form-input"' + (field.required ? ' required' : '') + '>';
+                    html += '<option value="">Select ' + field.label + '...</option>';
+                    if (field.options) {
+                        field.options.forEach(function(opt) {
+                            html += '<option value="' + opt + '">' + opt + '</option>';
+                        });
+                    }
+                    html += '</select>';
+                } else if (field.type === 'file') {
+                    html += '<div class="file-upload" onclick="document.getElementById(\'file-' + field.name + '\').click()">';
+                    html += '<i data-lucide="paperclip" style="width:16px;height:16px;color:var(--text-muted);margin-bottom:4px;"></i>';
+                    html += '<p style="font-size:13px;color:var(--text-muted);margin:0;"><span id="file-name-' + field.name + '" style="color:var(--text-faint);">Click to upload</span></p>';
+                    html += '</div>';
+                    html += '<input type="file" id="file-' + field.name + '" name="' + field.name + '" style="display:none;" onchange="handleFileSelect(\'file-' + field.name + '\', \'file-name-' + field.name + '\')">';
+                }
+
+                html += '</div>';
+            });
+            container.innerHTML = html;
+            lucide.createIcons();
+        })
+        .catch(function(err) {
+            container.innerHTML = '<p style="color:#dc2626;font-size:14px;padding:16px 0;">Error loading fields. Please try again.</p>';
+        });
+}
+</script>
+{% endblock %}

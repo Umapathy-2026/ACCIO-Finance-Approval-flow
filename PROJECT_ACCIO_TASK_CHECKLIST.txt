@@ -1,0 +1,178 @@
+================================================================================
+PROJECT ACCIO — COMPLETE TASK CHECKLIST
+================================================================================
+Finance AR Ticketing System
+================================================================================
+
+This checklist covers all features, pages, and system components built for the
+ACCIO application. Each item represents a trackable unit of work.
+
+================================================================================
+AUTH SYSTEM
+================================================================================
+☐ ACCIO-1  Login page with email/password
+☐ ACCIO-2  Login lockout (5 failed attempts → 30 min lock)
+☐ ACCIO-3  "Forgot your password?" link on login page
+☐ ACCIO-4  Forgot password page (email input form)
+☐ ACCIO-5  Reset password token generation (48-byte, 1 hour expiry)
+☐ ACCIO-6  Reset password page with inline validation
+☐ ACCIO-7  Password reset email template (HTML)
+☐ ACCIO-8  Logout route
+☐ ACCIO-9  @role_required decorator
+☐ ACCIO-10 Role-based redirect after login (user/approver/admin)
+
+================================================================================
+USER (REQUESTER) DASHBOARD
+================================================================================
+☐ ACCIO-11 My Tickets tab with sortable table
+☐ ACCIO-12 Needs Attention tab (Needs Clarification tickets only)
+☐ ACCIO-13 Search/filter bar (text search + status dropdown + clear button)
+☐ ACCIO-14 Column sorting (ascending/descending/reset)
+☐ ACCIO-15 Pagination (10/20/50 per page with page number buttons)
+☐ ACCIO-16 Empty state ("No tickets yet" with CTA button)
+☐ ACCIO-17 Filtered empty state ("No tickets match your filters")
+☐ ACCIO-18 Clickable rows → ticket detail page
+☐ ACCIO-19 Copy ticket number button on each table row
+
+================================================================================
+CREATE TICKET
+================================================================================
+☐ ACCIO-20 Dropdown to select issue type (21 predefined types)
+☐ ACCIO-21 AJAX dynamic field loading via /api/form-fields/<id>
+☐ ACCIO-22 Subject (required) and Description (optional) fields
+☐ ACCIO-23 File attachment upload (10MB limit, validated types)
+☐ ACCIO-24 Submit button with spinner + double-submit prevention
+☐ ACCIO-25 Unsaved changes warning (beforeunload)
+☐ ACCIO-26 Auto-generate ticket number (ACC-YYYYMMDD-XXXX format)
+☐ ACCIO-27 Auto-assign approver (manager → first available)
+☐ ACCIO-28 ApprovalLog entry on ticket submission
+☐ ACCIO-29 Email notification to approver on ticket creation
+
+================================================================================
+TICKET DETAIL (REQUESTER VIEW)
+================================================================================
+☐ ACCIO-30 Full ticket information display (subject, type, creator, etc.)
+☐ ACCIO-31 Dynamic payload field values from form data
+☐ ACCIO-32 Activity timeline (ApprovalLog with timestamps)
+☐ ACCIO-33 Clarification form when status = "Needs Clarification"
+☐ ACCIO-34 File upload option with clarification response
+☐ ACCIO-35 Copy ticket number button
+☐ ACCIO-36 Export to Excel button (2-sheet export)
+
+================================================================================
+APPROVER QUEUE
+================================================================================
+☐ ACCIO-37 Pending + Under Review tickets list for assigned approver
+☐ ACCIO-38 Search/filter bar with search, status dropdown, date range
+☐ ACCIO-39 Column sorting (ticket#, creator, issue, subject, date, status)
+☐ ACCIO-40 Pagination (10/20/50/100 per page)
+☐ ACCIO-41 Bulk checkbox column + "Select All" header checkbox
+☐ ACCIO-42 Sticky bottom bulk action bar (Approve All / Reject All / Cancel)
+☐ ACCIO-43 Copy ticket number button on each row
+
+================================================================================
+APPROVER ACTIONS
+================================================================================
+☐ ACCIO-44 Approve with comment (modal with required comment textarea)
+☐ ACCIO-45 Reject with reason (modal with required textarea)
+☐ ACCIO-46 Send Back for Clarification (modal with required textarea)
+☐ ACCIO-47 Sticky action bar at bottom of ticket detail page
+☐ ACCIO-48 Reassign ticket to another approver (modal with dropdown + reason)
+☐ ACCIO-49 Bulk approve (POST /approver/bulk-action, JSON)
+☐ ACCIO-50 Bulk reject with common reason from modal
+☐ ACCIO-51 Email notifications on approve/reject/send-back
+☐ ACCIO-52 In-app notification on approve/reject/clarify/reassign
+
+================================================================================
+ADMIN DASHBOARD
+================================================================================
+☐ ACCIO-53 KPI cards: Total Tickets, This Month, Pending, Approved
+☐ ACCIO-54 Recent tickets table (last 10, clickable)
+☐ ACCIO-55 Export to Excel button with date/status/form filter modal popover
+
+================================================================================
+ADMIN USER MANAGEMENT
+================================================================================
+☐ ACCIO-56 List all users with name, email, role, manager, status
+☐ ACCIO-57 Create user modal (name, email, password, role, approver)
+☐ ACCIO-58 Edit user modal (update role, approver, active, password)
+☐ ACCIO-59 Unlock user button (visible when account is locked)
+☐ ACCIO-60 Deactivate user with graceful check (detect open tickets)
+☐ ACCIO-61 Deactivation interstitial modal with ticket reassign dropdown
+
+================================================================================
+ADMIN FORM MANAGEMENT
+================================================================================
+☐ ACCIO-62 List all 21 issue forms with field count + active/inactive badge
+☐ ACCIO-63 Toggle active/inactive form status
+☐ ACCIO-64 Edit form fields (add, remove, reorder via JS)
+☐ ACCIO-65 Field types: text, number, date, dropdown, email, file
+☐ ACCIO-66 Required toggle per field
+☐ ACCIO-67 Dropdown options editor (one option per line in textarea)
+
+================================================================================
+SYSTEM-WIDE FEATURES
+================================================================================
+☐ ACCIO-68 Toast notification system (4 types, 4s auto-dismiss, stack max 3)
+☐ ACCIO-69 Session timeout (30 min inactivity, 5 min countdown warning modal)
+☐ ACCIO-70 Double-submit prevention (spinner + disabled button, 10s fallback)
+☐ ACCIO-71 Unsaved changes warning (beforeunload event)
+☐ ACCIO-72 Notification model + in-app bell icon in header
+☐ ACCIO-73 Notification polling from /api/notifications (every 60 seconds)
+☐ ACCIO-74 Notification slide-down panel (last 5) + full /notifications page
+☐ ACCIO-75 Company logo on login page background + app header
+
+================================================================================
+TEMPLATES & UI
+================================================================================
+☐ ACCIO-76 base.html — app shell with header, sidebar, design system CSS
+☐ ACCIO-77 auth/login.html — split-screen login with logo background
+☐ ACCIO-78 auth/forgot_password.html — email input form
+☐ ACCIO-79 auth/reset_password.html — new password + inline validation
+☐ ACCIO-80 requester/dashboard.html — My Tickets + Needs Attention tabs
+☐ ACCIO-81 requester/new_ticket.html — create ticket with dynamic fields
+☐ ACCIO-82 requester/ticket_detail.html — detail + timeline + clarify
+☐ ACCIO-83 requester/notifications.html — full notification list page
+☐ ACCIO-84 approver/queue.html — queue with bulk actions + search/filter
+☐ ACCIO-85 approver/ticket_detail.html — detail + action bar + reassign
+☐ ACCIO-86 admin/dashboard.html — KPI cards + recent tickets + export
+☐ ACCIO-87 admin/users.html — user table + create/edit/unlock/deactivate
+☐ ACCIO-88 admin/forms.html — form list with toggle
+☐ ACCIO-89 admin/edit_form.html — field editor with dynamic rows
+
+================================================================================
+API ENDPOINTS
+================================================================================
+☐ ACCIO-90 GET /api/form-fields/<id> — return JSON field definitions
+☐ ACCIO-91 GET /api/notifications — unread count + last 5 notifications
+☐ ACCIO-92 POST /api/notifications/mark-read — mark all as read
+☐ ACCIO-93 POST /api/notifications/<id>/read — mark one as read
+
+================================================================================
+AZURE DEPLOYMENT (TO BE COMPLETED)
+================================================================================
+☐ ACCIO-94 Set up Azure App Service (B1 tier, Linux, Python 3.13)
+☐ ACCIO-95 Configure Azure SQL Database (Serverless)
+☐ ACCIO-96 Configure Azure Blob Storage for file uploads
+☐ ACCIO-97 Configure Azure Communication Services for email
+☐ ACCIO-98 Configure Microsoft Entra ID for auth (MSAL)
+☐ ACCIO-99 Update requirements.txt (add pymssql, azure-storage-blob, etc.)
+☐ ACCIO-100 Update app/__init__.py for Azure SQL connection string
+☐ ACCIO-101 Update app/utils/storage.py for Azure Blob Storage
+☐ ACCIO-102 Update app/routes/auth.py for MSAL authentication
+☐ ACCIO-103 Update app/utils/email.py for ACS Email sending
+☐ ACCIO-104 Set all environment variables in Azure App Service Settings
+☐ ACCIO-105 Deploy and test authentication flow in Azure
+☐ ACCIO-106 Deploy and test full ticket lifecycle in Azure
+☐ ACCIO-107 Deploy and test email notifications from Azure
+☐ ACCIO-108 Deploy and test file uploads with Azure Blob
+☐ ACCIO-109 Set up custom domain (optional)
+☐ ACCIO-110 Configure HTTPS (default with App Service)
+
+================================================================================
+NOTES
+================================================================================
+- Items marked with ☐ are either completed (built) or pending (Azure items)
+- v1 covers items ACCIO-1 through ACCIO-93 (local development)
+- Azure deployment items start at ACCIO-94
+- All built features use vanilla JS only — no jQuery, Alpine.js, or Vue

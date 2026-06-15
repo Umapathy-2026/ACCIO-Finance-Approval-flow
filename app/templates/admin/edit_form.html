@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}Edit Form - ACCIO{% endblock %}
+{% block content %}
+<div style="margin-bottom:28px;">
+    <a href="{{ url_for('admin.forms') }}" style="font-size:13px;color:var(--text-muted);text-decoration:none;display:inline-flex;align-items:center;gap:4px;margin-bottom:12px;">
+        <i data-lucide="arrow-left" style="width:14px;height:14px;"></i> Back to Forms
+    </a>
+    <h1 style="font-size:22px;font-weight:700;color:var(--text);margin:0;">{{ form.name }}</h1>
+    <p style="font-size:14px;color:var(--text-muted);margin-top:4px">Configure custom fields for this issue type</p>
+</div>
+
+<div class="card" style="max-width:800px;">
+    <form method="POST" id="formEditor">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="fields_json" id="fieldsJson" value='{{ form.fields|tojson|safe }}'>
+
+        <div style="margin-bottom:24px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                <h2 style="font-size:16px;font-weight:600;margin:0;">Custom Fields</h2>
+                <button type="button" class="btn-secondary" onclick="addField()" style="padding:6px 14px;font-size:13px;">
+                    <i data-lucide="plus" style="width:14px;height:14px;"></i>
+                    Add Field
+                </button>
+            </div>
+            <div id="fieldsContainer"></div>
+            {% if not form.fields %}
+            <div style="text-align:center;padding:32px;color:var(--text-muted);border:2px dashed var(--border);border-radius:var(--radius);">
+                <i data-lucide="layers" style="width:32px;height:32px;color:var(--text-faint);margin-bottom:8px;"></i>
+                <p style="font-size:14px;margin:0;">No custom fields defined.</p>
+                <p style="font-size:13px;margin:4px 0 0;">Click "Add Field" to create one.</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <div style="display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--border);padding-top:20px;">
+            <a href="{{ url_for('admin.forms') }}" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn-primary">
+                <i data-lucide="save" style="width:16px;height:16px;"></i>
+                Save Changes
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+var fields = {{ form.fields|tojson|safe }};
+
+function renderFields() {
+    var container = document.getElementById('fieldsContainer');
+    if (!fields || fields.length === 0) {
+        container.innerHTML = '<div style="text-align:center;padding:32px;color:var(--text-muted);border:2px dashed var(--border);border-radius:var(--radius);"><i data-lucide="layers" style="width:32px;height:32px;color:var(--text-faint);margin-bottom:8px;"></i><p style="font-size:14px;margin:0;">No custom fields defined.</p><p style="font-size:13px;margin:4px 0 0;">Click "Add Field" to create one.</p></div>';
+        document.getElementById('fieldsJson').value = JSON.stringify(fields);
+        lucide.createIcons();
+        return;
+    }
+
+    var html = '<div style="display:flex;flex-direction:column;gap:12px;">';
+    fields.forEach(function(field, index) {
+        html += '<div class="field-row" style="background:var(--surface-2);border-radius:8px;padding:16px;border:1px solid var(--border);">';
+        html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">';
+        html += '<span style="font-size:13px;font-weight:600;color:var(--text-muted);">Field #' + (index + 1) + '</span>';
+        html += '<button type="button" class="btn-danger" style="padding:2px 8px;font-size:11px;" onclick="removeField(' + index + ')">Remove</button>';
+        html += '</div>';
+        html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">';
+        html += '<div><label class="form-label" style="font-size:12px;">Label</label><input type="text" class="form-input" value="' + escapeHtml(field.label) + '" onchange="updateField(' + index + ', \'label\', this.value)" placeholder="Field label"></div>';
+        html += '<div><label class="form-label" style="font-size:12px;">Field Name</label><input type="text" class="form-input" value="' + escapeHtml(field.name) + '" onchange="updateField(' + index + ', \'name\', this.value)" placeholder="field_name"></div>';
+        html += '</div>';
+        html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">';
+        html += '<div><label class="form-label" style="font-size:12px;">Type</label><select class="form-input" onchange="updateField(' + index + ', \'type\', this.value)">';
+        var types = ['text', 'number', 'date', 'dropdown', 'email', 'file'];
+        types.forEach(function(t) {
+            html += '<option value="' + t + '"' + (field.type === t ? ' selected' : '') + '>' + t.charAt(0).toUpperCase() + t.slice(1) + '</option>';
+        });
+        html += '</select></div>';
+        html += '<div style="display:flex;align-items:center;gap:8px;padding-top:24px;"><input type="checkbox" id="req-' + index + '" ' + (field.required ? 'checked' : '') + ' onchange="updateField(' + index + ', \'required\', this.checked)" style="width:16px;height:16px;"><label for="req-' + index + '" style="font-size:13px;">Required</label></div>';
+        html += '</div>';
+
+        if (field.type === 'dropdown') {
+            html += '<div style="margin-top:12px;"><label class="form-label" style="font-size:12px;">Options (one per line)</label>';
+            var opts = field.options ? field.options.join('\n') : '';
+            html += '<textarea class="form-input" rows="3" onchange="updateDropdownOptions(' + index + ', this.value)" placeholder="Option 1\nOption 2\nOption 3">' + escapeHtml(opts) + '</textarea></div>';
+        }
+
+        html += '</div>';
+    });
+    html += '</div>';
+    container.innerHTML = html;
+    document.getElementById('fieldsJson').value = JSON.stringify(fields);
+    lucide.createIcons();
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/&/g, '&').replace(/"/g, '"').replace(/'/g, '&#39;').replace(/</g, '<').replace(/>/g, '>');
+}
+
+function updateField(index, key, value) {
+    fields[index][key] = value;
+    document.getElementById('fieldsJson').value = JSON.stringify(fields);
+}
+
+function updateDropdownOptions(index, value) {
+    fields[index].options = value.split('\n').filter(function(o) { return o.trim(); });
+    document.getElementById('fieldsJson').value = JSON.stringify(fields);
+}
+
+function addField() {
+    var name = 'field_' + (fields.length + 1);
+    fields.push({
+        name: name,
+        label: 'New Field',
+        type: 'text',
+        required: false,
+        options: []
+    });
+    renderFields();
+}
+
+function removeField(index) {
+    fields.splice(index, 1);
+    renderFields();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    renderFields();
+});
+</script>
+{% endblock %}

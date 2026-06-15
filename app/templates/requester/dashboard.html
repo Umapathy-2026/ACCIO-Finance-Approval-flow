@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+{% block title %}My Tickets - ACCIO{% endblock %}
+{% block content %}
+<div style="margin-bottom:28px;">
+    <h1 style="font-size:22px;font-weight:700;color:var(--text)">My Tickets</h1>
+    <p style="font-size:14px;color:var(--text-muted);margin-top:4px">View and manage your support tickets</p>
+</div>
+
+<!-- Tabs -->
+<div class="tab-bar">
+    <button class="tab active" onclick="switchTab('my-tickets', this)">My Tickets</button>
+    <button class="tab" onclick="switchTab('needs-attention', this)">Needs Attention</button>
+</div>
+
+<!-- My Tickets Tab -->
+<div id="tab-my-tickets" class="tab-content">
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+        <div style="position:relative;flex:1;min-width:180px;">
+            <i data-lucide="search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--text-faint);pointer-events:none;"></i>
+            <input type="text" class="filter-input" id="reqSearch" placeholder="Search tickets..." oninput="debounceReqFilter()" style="padding-left:36px;">
+        </div>
+        <select class="filter-select" id="reqStatus" onchange="applyReqFilters()">
+            <option value="">All Statuses</option>
+            <option value="Pending">Pending</option>
+            <option value="Under Review">Under Review</option>
+            <option value="Approved">Approved</option>
+            <option value="Rejected">Rejected</option>
+            <option value="Needs Clarification">Needs Clarification</option>
+        </select>
+        <button class="btn-secondary" id="reqClear" onclick="clearReqFilters()" style="display:none;padding:6px 12px;font-size:13px;">
+            <i data-lucide="x" style="width:14px;height:14px;"></i> Clear
+        </button>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden;">
+        {% set my_tickets = current_user.created_tickets|default([]) %}
+        {% if my_tickets %}
+        <table id="reqTable">
+            <thead>
+                <tr>
+                    <th onclick="sortReqTable(0)" data-col="0">Ticket # <span class="sort-arrow"></span></th>
+                    <th onclick="sortReqTable(1)" data-col="1">Issue Type <span class="sort-arrow"></span></th>
+                    <th onclick="sortReqTable(2)" data-col="2">Subject <span class="sort-arrow"></span></th>
+                    <th onclick="sortReqTable(3)" data-col="3">Status <span class="sort-arrow"></span></th>
+                    <th onclick="sortReqTable(4)" data-col="4">Date <span class="sort-arrow"></span></th>
+                </tr>
+            </thead>
+            <tbody id="reqBody">
+                {% for ticket in my_tickets|sort(attribute='created_at', reverse=True) %}
+                <tr data-num="{{ ticket.ticket_number|lower }}" data-issue="{{ ticket.issue_form.name|lower }}" data-subject="{{ ticket.subject|lower }}" data-status="{{ ticket.current_status }}" data-date="{{ ticket.created_at.strftime('%Y-%m-%d') }}">
+                    <td onclick="window.location='{{ url_for('req.ticket_detail', ticket_id=ticket.id) }}'">
+                        <span class="ticket-num-wrapper">
+                            <span class="ticket-num">{{ ticket.ticket_number }}</span>
+                            <button class="copy-btn" onclick="event.stopPropagation();copyTicketNum(this,'{{ ticket.ticket_number }}')" title="Copy ticket number"><i data-lucide="copy" style="width:13px;height:13px"></i></button>
+                        </span>
+                    </td>
+                    <td onclick="window.location='{{ url_for('req.ticket_detail', ticket_id=ticket.id) }}'" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ ticket.issue_form.name }}</td>
+                    <td onclick="window.location='{{ url_for('req.ticket_detail', ticket_id=ticket.id) }}'" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ ticket.subject }}</td>
+                    <td onclick="window.location='{{ url_for('req.ticket_detail', ticket_id=ticket.id) }}'">
+                        {% set s = ticket.current_status %}
+                        {% if s == 'Pending' %}<span class="badge badge-yellow"><i data-lucide="clock" style="width:12px;height:12px;"></i> Pending</span>
+                        {% elif s == 'Under Review' %}<span class="badge badge-blue"><i data-lucide="search" style="width:12px;height:12px;"></i> Under Review</span>
+                        {% elif s == 'Approved' %}<span class="badge badge-green"><i data-lucide="check-circle" style="width:12px;height:12px;"></i> Approved</span>
+                        {% elif s == 'Rejected' %}<span class="badge badge-red"><i data-lucide="x-circle" style="width:12px;height:12px;"></i> Rejected</span>
+                        {% elif s == 'Needs Clarification' %}<span class="badge badge-orange"><i data-lucide="message-square" style="width:12px;height:12px;"></i> Needs Clarification</span>
+                        {% elif s == 'Sent to Fulfilment' %}<span class="badge badge-green"><i data-lucide="check-circle" style="width:12px;height:12px;"></i> Sent to Fulfilment</span>
+                        {% else %}<span class="badge badge-yellow">{{ s }}</span>{% endif %}
+                    </td>
+                    <td onclick="window.location='{{ url_for('req.ticket_detail', ticket_id=ticket.id) }}'" style="color:var(--text-muted);font-size:13px;">{{ ticket.created_at.strftime('%d %b %Y') }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div id="reqEmpty" style="display:none;text-align:center;padding:64px 32px;color:var(--text-muted)">
+            <i data-lucide="inbox" style="width:40px;height:40px;margin:0 auto 16px;display:block;color:var(--text-faint)"></i>
+            <p style="font-size:15px;font-weight:500;margin-bottom:6px">No tickets match your filters</p>
+            <p style="font-size:13px">Try adjusting your search or filters.</p>
+        </div>
+        {% else %}
+        <div id="reqNoTickets" style="text-align:center;padding:64px 32px;color:var(--text-muted)">
+            <i data-lucide="inbox" style="width:40px;height:40px;margin:0 auto 16px;display:block;color:var(--text-faint)"></i>
+            <p style="font-size:15px;font-weight:500;margin-bottom:6px">No tickets yet</p>
+            <p style="font-size:13px">Tickets you create will appear here.</p>
+            <a href="{{ url_for('req.new_ticket') }}" class="btn-primary" style="margin-top:16px;display:inline-flex;">Create your first ticket</a>
+        </div>
+        {% endif %}
+    </div>
+    {% if my_tickets %}
+    <div class="pagination" id="reqPagination">
+        <div class="pagination-info" id="reqInfo">Showing tickets</div>
+        <div style="display:flex;align-items:center;">
+            <div class="pagination-controls" id="reqPageControls"></div>
+            <select class="page-size-select" id="reqPageSize" onchange="applyReqFilters()">
+                <option value="10">10 / page</option>
+                <option value="20" selected>20 / page</option>
+                <option value="50">50 / page</option>
+            </select>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Needs Attention Tab -->
+<div id="tab-needs-attention" class="tab-content" style="display:none;">
+    <div class="card" style="padding:0;overflow:hidden;">
+        {% set needs = current_user.created_tickets|selectattr('current_status', 'equalto', 'Needs Clarification')|list %}
+        {% if needs %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Ticket #</th>
+                    <th>Issue Type</th>
+                    <th>Subject</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ticket in needs|sort(attribute='created_at', reverse=True) %}
+                <tr onclick="window.location='{{ url_for('req.ticket_detail', ticket_id=ticket.id) }}'">
+                    <td>
+                        <span class="ticket-num-wrapper">
+                            <span class="ticket-num">{{ ticket.ticket_number }}</span>
+                            <button class="copy-btn" onclick="event.stopPropagation();copyTicketNum(this,'{{ ticket.ticket_number }}')" title="Copy ticket number"><i data-lucide="copy" style="width:13px;height:13px"></i></button>
+                        </span>
+                    </td>
+                    <td>{{ ticket.issue_form.name }}</td>
+                    <td>{{ ticket.subject }}</td>
+                    <td><span class="badge badge-orange"><i data-lucide="message-square" style="width:12px;height:12px;"></i> Needs Clarification</span></td>
+                    <td style="color:var(--text-muted);font-size:13px;">{{ ticket.created_at.strftime('%d %b %Y') }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div style="text-align:center;padding:64px 32px;color:var(--text-muted)">
+            <i data-lucide="check-circle" style="width:40px;height:40px;margin:0 auto 16px;display:block;color:var(--text-faint)"></i>
+            <p style="font-size:15px;font-weight:500;margin-bottom:6px">All caught up</p>
+            <p style="font-size:13px">No tickets need your attention right now.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+// Requester ticket filter/sort/pagination
+var reqTickets = [];
+document.querySelectorAll('#reqBody tr').forEach(function(row) {
+    if (row.dataset.num) {
+        reqTickets.push({
+            num: row.dataset.num,
+            issue: row.dataset.issue,
+            subject: row.dataset.subject,
+            status: row.dataset.status,
+            date: row.dataset.date,
+            html: row.outerHTML
+        });
+    }
+});
+
+var reqPage = 1, reqSort = {col:-1, dir:'asc'};
+
+function debounceReqFilter() { clearTimeout(window._rf); window._rf = setTimeout(applyReqFilters, 250); }
+
+function applyReqFilters() {
+    var search = document.getElementById('reqSearch').value.toLowerCase();
+    var status = document.getElementById('reqStatus').value;
+    var ps = parseInt(document.getElementById('reqPageSize').value);
+    var filtered = reqTickets.filter(function(t) {
+        if (search && t.num.indexOf(search) === -1 && t.issue.indexOf(search) === -1 && t.subject.indexOf(search) === -1) return false;
+        if (status && t.status !== status) return false;
+        return true;
+    });
+    if (reqSort.col >= 0) {
+        var keys = ['num','issue','subject','status','date'];
+        var key = keys[reqSort.col];
+        filtered.sort(function(a,b) { var va=a[key],vb=b[key]; return reqSort.dir==='asc'?(va>vb?1:-1):(va<vb?1:-1); });
+    }
+    var total = filtered.length, tp = Math.max(1, Math.ceil(total/ps));
+    if (reqPage > tp) reqPage = tp;
+    var start = (reqPage-1)*ps, end = Math.min(start+ps, total);
+    var pg = filtered.slice(start, end);
+    var body = document.getElementById('reqBody');
+    if (pg.length === 0) { body.innerHTML = ''; document.getElementById('reqEmpty').style.display = 'block'; }
+    else { document.getElementById('reqEmpty').style.display = 'none'; body.innerHTML = pg.map(function(t){return t.html;}).join(''); }
+    document.getElementById('reqInfo').textContent = total > 0 ? 'Showing '+(start+1)+'–'+end+' of '+total+' tickets' : 'Showing 0 of 0 tickets';
+    var c = document.getElementById('reqPageControls'); c.innerHTML = '';
+    c.appendChild(pgBtn('‹', reqPage > 1 ? function(){reqPage--;applyReqFilters();} : null));
+    var sp = Math.max(1, reqPage-2), ep = Math.min(tp, reqPage+2);
+    if (sp > 1) { c.appendChild(pgBtn('1', function(){reqPage=1;applyReqFilters();})); if (sp > 2) c.appendChild(pgBtn('...', null, true)); }
+    for (var i = sp; i <= ep; i++) (function(p){c.appendChild(pgBtn(p, function(){reqPage=p;applyReqFilters();}, false, p===reqPage));})(i);
+    if (ep < tp) { if (ep < tp-1) c.appendChild(pgBtn('...', null, true)); c.appendChild(pgBtn(tp, function(){reqPage=tp;applyReqFilters();})); }
+    c.appendChild(pgBtn('›', reqPage < tp ? function(){reqPage++;applyReqFilters();} : null));
+    document.getElementById('reqClear').style.display = (search||status) ? 'inline-flex' : 'none';
+    lucide.createIcons();
+}
+
+function pgBtn(text, onClick, disabled, active) {
+    var b = document.createElement('button'); b.className='page-btn'+(active?' active':''); b.textContent=text; b.disabled=!onClick; if(onClick)b.onclick=onClick; return b;
+}
+
+function clearReqFilters() { document.getElementById('reqSearch').value=''; document.getElementById('reqStatus').value=''; reqPage=1; applyReqFilters(); }
+
+function sortReqTable(col) {
+    if (reqSort.col === col) reqSort.dir = reqSort.dir==='asc'?'desc':'asc';
+    else { reqSort.col=col; reqSort.dir='asc'; }
+    document.querySelectorAll('#reqTable thead th .sort-arrow').forEach(function(el){el.textContent='';});
+    var arrow = document.querySelector('#reqTable thead th[data-col="'+col+'"] .sort-arrow');
+    if (arrow) arrow.textContent = reqSort.dir==='asc'?'↑':'↓';
+    applyReqFilters();
+}
+
+function switchTab(tabId, btn) {
+    document.querySelectorAll('.tab-content').forEach(function(el){el.style.display='none';});
+    document.querySelectorAll('.tab').forEach(function(el){el.classList.remove('active');});
+    document.getElementById('tab-'+tabId).style.display='block'; btn.classList.add('active');
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    if (reqTickets.length > 0) applyReqFilters();
+});
+</script>
+{% endblock %}
