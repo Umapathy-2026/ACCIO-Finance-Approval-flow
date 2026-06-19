@@ -1,6 +1,10 @@
 # Environment variables
 .env
 
+# Azure SQL connection string (sensitive)
+connecton String from Azure Sql Server.txt
+*.sql
+
 # Python
 __pycache__/
 *.py[cod]

@@ -44,7 +44,6 @@ def get_form_fields(form_id):
 
 @api_bp.route('/notifications')
 @login_required
-@limiter.limit("2 per minute")
 def get_notifications():
     unread_count = Notification.query.filter_by(user_id=current_user.id, is_read=False).count()
     recent = Notification.query.filter_by(user_id=current_user.id)\
@@ -65,7 +64,6 @@ def get_notifications():
 
 @api_bp.route('/notifications/mark-read', methods=['POST'])
 @login_required
-@csrf.exempt
 def mark_all_read():
     Notification.query.filter_by(user_id=current_user.id, is_read=False)\
         .update({'is_read': True})
@@ -75,7 +73,6 @@ def mark_all_read():
 
 @api_bp.route('/notifications/<int:notif_id>/read', methods=['POST'])
 @login_required
-@csrf.exempt
 def mark_one_read(notif_id):
     notif = Notification.query.filter_by(id=notif_id, user_id=current_user.id).first()
     if notif:

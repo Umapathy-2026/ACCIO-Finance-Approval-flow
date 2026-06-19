@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}Ticket {{ ticket.ticket_number }} - ACCIO{% endblock %}
+{% block title %}Request {{ ticket.ticket_number }} - ACCIO{% endblock %}
 {% block content %}
 <div style="margin-bottom:28px;">
     <a href="{{ url_for('req.dashboard') }}" style="font-size:13px;color:var(--text-muted);text-decoration:none;display:inline-flex;align-items:center;gap:4px;margin-bottom:12px;">
-        <i data-lucide="arrow-left" style="width:14px;height:14px;"></i> Back to Tickets
+        <i data-lucide="arrow-left" style="width:14px;height:14px;"></i> Back to My Requests
     </a>
     <div style="display:flex;align-items:center;gap:12px;">
         <h1 style="font-size:22px;font-weight:700;color:var(--text);margin:0;">

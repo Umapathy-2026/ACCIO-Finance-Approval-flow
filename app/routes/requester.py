@@ -18,15 +18,18 @@ req_bp = Blueprint('req', __name__, url_prefix='', template_folder='../templates
 
 
 def generate_ticket_number():
-    from datetime import datetime as dt, timezone as tz
-    today_str = dt.now(tz.utc).strftime('%Y%m%d')
-    for attempt in range(5):
+    import secrets as _secrets
+    from datetime import datetime, timezone
+    today = datetime.now(timezone.utc).strftime('%Y%m%d')
+    for attempt in range(10):
         count = Ticket.query.filter(
-            Ticket.ticket_number.like(f'ACC-{today_str}-%')
+            Ticket.ticket_number.like(f'ACC-{today}-%')
         ).count()
-        seq = count + 1
-        return f'ACC-{today_str}-{seq:04d}'
-    return f'ACC-{today_str}-{uuid.uuid4().hex[:6].upper()}'
+        candidate = f'ACC-{today}-{count + 1:04d}'
+        if not Ticket.query.filter_by(ticket_number=candidate).first():
+            return candidate
+    # Fallback: random suffix to avoid collision under high concurrency
+    return f'ACC-{today}-{_secrets.token_hex(3).upper()}'
 
 
 @req_bp.route('/')
@@ -316,6 +319,41 @@ def export_ticket(ticket_id):
 
     return send_file(output, as_attachment=True, download_name=filename,
                      mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+
+@req_bp.route('/attachment/<int:ticket_id>')
+@login_required
+def download_attachment(ticket_id):
+    """Serve ticket attachment — works for both Azure Blob and local storage."""
+    from flask import abort, redirect, send_file
+    from app.utils.storage import get_file_path, get_download_url
+    import os
+
+    ticket = Ticket.query.get_or_404(ticket_id)
+
+    # Permission: only ticket creator, assigned approver, or admin
+    if (current_user.id != ticket.created_by
+            and current_user.id != ticket.assigned_to
+            and current_user.role != 'admin'):
+        abort(403)
+
+    if not ticket.attachment_path:
+        abort(404)
+
+    # Azure Blob: redirect to time-limited SAS URL
+    sas_url = get_download_url(ticket.attachment_path, ticket.attachment_name)
+    if sas_url:
+        return redirect(sas_url)
+
+    # Local dev fallback
+    filepath = get_file_path(ticket.attachment_path)
+    if not os.path.exists(filepath):
+        abort(404)
+    return send_file(
+        filepath,
+        as_attachment=True,
+        download_name=ticket.attachment_name or ticket.attachment_path
+    )
 
 
 @req_bp.route('/notifications')

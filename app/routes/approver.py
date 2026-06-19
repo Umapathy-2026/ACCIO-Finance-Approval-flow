@@ -28,6 +28,14 @@ def queue():
         ])
     ).order_by(Ticket.created_at.desc()).limit(500).all()
 
+    return render_template('approver/queue.html',
+                           tickets=active_tickets)
+
+
+@appr_bp.route('/history')
+@login_required
+@role_required('approver', 'admin')
+def approval_history():
     resolved_tickets = Ticket.query.filter(
         Ticket.assigned_to == current_user.id,
         Ticket.current_status.in_([
@@ -37,9 +45,8 @@ def queue():
         ])
     ).order_by(Ticket.updated_at.desc()).limit(500).all()
 
-    return render_template('approver/queue.html',
-                           active_tickets=active_tickets,
-                           resolved_tickets=resolved_tickets)
+    return render_template('approver/approval_history.html',
+                           tickets=resolved_tickets)
 
 
 @appr_bp.route('/ticket/<int:ticket_id>')

@@ -14,11 +14,7 @@ db = SQLAlchemy()
 login_manager = LoginManager()
 login_manager.login_view = 'auth.login'
 csrf = CSRFProtect()
-limiter = Limiter(
-    get_remote_address,
-    default_limits=["500 per day", "100 per hour"],
-    storage_uri="memory://"
-)
+limiter = Limiter(get_remote_address, default_limits=["500 per day", "100 per hour"], storage_uri="memory://")
 
 
 def create_app(testing=False):
@@ -28,26 +24,41 @@ def create_app(testing=False):
 
     app = Flask(__name__, static_folder='static', instance_path=instance_dir)
 
-    # SEC-FIX-04: SECRET_KEY validation
+    # SECRET_KEY validation
     secret = os.getenv('SECRET_KEY')
     if not secret:
         env = os.getenv('FLASK_ENV', 'development')
         if env == 'production':
-            raise RuntimeError(
-                'FATAL: SECRET_KEY environment variable is not set. '
-                'The application will not start without it in production.'
-            )
+            raise RuntimeError("FATAL: SECRET_KEY environment variable is not set.")
         else:
-            warnings.warn(
-                'SECRET_KEY not set. Using insecure default for development only. '
-                'NEVER deploy without setting SECRET_KEY.',
-                stacklevel=2
-            )
+            warnings.warn("SECRET_KEY not set. Using insecure default for development only.", stacklevel=2)
             secret = 'dev-only-insecure-key-do-not-use-in-prod'
-
     app.config['SECRET_KEY'] = secret
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(instance_dir, 'ticketing.db')
+
+    # Session cookie security
+    is_production = os.getenv('FLASK_ENV') == 'production'
+    app.config['SESSION_COOKIE_SECURE'] = is_production
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    app.config['REMEMBER_COOKIE_SECURE'] = is_production
+    app.config['REMEMBER_COOKIE_HTTPONLY'] = True
+
+    # Database — env var takes priority, SQLite fallback for local dev only
+    default_db = 'sqlite:///' + os.path.join(instance_dir, 'ticketing.db')
+    db_uri = os.getenv('SQLALCHEMY_DATABASE_URI') or default_db
+    app.config['SQLALCHEMY_DATABASE_URI'] = db_uri
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+    # Azure SQL pool settings (only if using mssql)
+    if 'mssql' in db_uri or 'pyodbc' in db_uri:
+        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+            'pool_pre_ping': True,
+            'pool_recycle': 1800,
+            'pool_size': 5,
+            'max_overflow': 10,
+            'connect_args': {'timeout': 30}
+        }
+
     app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024
     app.config['UPLOAD_FOLDER'] = os.path.join(instance_dir, 'uploads')
     app.config['MAIL_SERVER'] = 'smtp.office365.com'
@@ -56,6 +67,8 @@ def create_app(testing=False):
     app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME', '')
     app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD', '')
     app.config['WTF_CSRF_ENABLED'] = True
+    app.config['AZURE_STORAGE_CONNECTION_STRING'] = os.getenv('AZURE_STORAGE_CONNECTION_STRING', '')
+    app.config['AZURE_STORAGE_CONTAINER'] = os.getenv('AZURE_STORAGE_CONTAINER', 'accio-uploads')
 
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
@@ -75,27 +88,24 @@ def create_app(testing=False):
             return None
         return user
 
-    # SEC-FIX-03: Force password change guard
+    # Force password change guard
     @app.before_request
     def enforce_password_change():
         from flask_login import current_user
-        allowed_endpoints = {
-            'auth.force_change_password',
-            'auth.logout',
-            'static'
-        }
+        allowed_endpoints = {'auth.force_change_password', 'auth.logout', 'static'}
         if (current_user.is_authenticated
-            and current_user.must_change_password
-            and request.endpoint not in allowed_endpoints):
+                and current_user.must_change_password
+                and request.endpoint not in allowed_endpoints):
             return redirect(url_for('auth.force_change_password'))
 
-    # SEC-FIX-06: Rate limit exceeded handler
+    # Rate limit exceeded handler
     from flask_limiter.errors import RateLimitExceeded
+
     @app.errorhandler(RateLimitExceeded)
     def handle_rate_limit(e):
-        if request.is_json or request.path.startswith('/api/'):
-            return jsonify({'error': 'Too many requests. Please try again later.'}), 429
-        flash('Too many requests. Please wait a moment and try again.', 'warning')
+        if request.is_json or request.path.startswith('/api'):
+            return jsonify(error="Too many requests. Please try again later."), 429
+        flash("Too many requests. Please wait a moment and try again.", "warning")
         return redirect(request.referrer or url_for('auth.login'))
 
     from app.routes.auth import auth_bp
@@ -120,13 +130,12 @@ def create_app(testing=False):
 
 def seed_database():
     from app.models import User, IssueForm
-
     if User.query.first() is None:
         from werkzeug.security import generate_password_hash
         admin = User(
             email='admin@company.com',
             display_name='Admin',
-            password_hash=generate_password_hash('Admin@123'),
+            password_hash=generate_password_hash('Admin123'),
             role='admin',
             is_active=True,
             must_change_password=True
@@ -144,33 +153,31 @@ def seed_database():
             "Approved Logistics WF - Logistics Delivery cost",
             "Approved Logistics WF - Logistics Packaging",
             "Approved Logistics WF - Short of delivery",
-            "Approved Price WF - OTP: One time payment to customer",
+            "Approved Price WF - OTP One time payment to customer",
             "Approved WF - Others",
             "Approved Price WF - Price adjustment for invoice",
             "Approved Price WF - Price change approved by BU",
             "Approved Price WF - Price discrepancy",
-            "Approved Quality & Logistics WF - Quality claim and compensation",
-            "Approved Quality & Logistics WF - Scrapping",
-            "Approved Quality & Logistics WF - Sorting cost",
-            "Approved Quality & Logistics WF - Warranty",
-            "Approved Price WF - Quantity discrepancy (item has not been delivered to the customer)",
+            "Approved Quality Logistics WF - Quality claim and compensation",
+            "Approved Quality Logistics WF - Scrapping",
+            "Approved Quality Logistics WF - Sorting cost",
+            "Approved Quality Logistics WF - Warranty",
+            "Approved Price WF - Quantity discrepancy item has not been delivered to the customer",
             "Approved Price WF - Rebate payment",
             "VAT issue",
-            "Master Customer issue"
+            "Master Customer issue",
         ]
-
         default_fields_base = [
-            {"name": "customer_name", "label": "Customer Name", "type": "text", "required": True, "options": []},
-            {"name": "customer_code", "label": "Customer Code", "type": "text", "required": True, "options": []},
-            {"name": "amount", "label": "Amount", "type": "number", "required": True, "options": []},
-            {"name": "currency", "label": "Currency", "type": "dropdown", "required": True, "options": ["USD", "EUR", "GBP", "INR", "CNY", "JPY", "SGD", "AUD", "CAD", "MYR", "THB", "VND"]},
-            {"name": "invoice_number", "label": "Invoice Number", "type": "text", "required": False, "options": []},
-            {"name": "invoice_date", "label": "Invoice Date", "type": "date", "required": False, "options": []},
-            {"name": "reference_notes", "label": "Reference Notes", "type": "text", "required": False, "options": []}
+            {"name": "customer_name", "label": "Customer Name", "type": "text", "required": True, "options": ""},
+            {"name": "customer_code", "label": "Customer Code", "type": "text", "required": True, "options": ""},
+            {"name": "amount", "label": "Amount", "type": "number", "required": True, "options": ""},
+            {"name": "currency", "label": "Currency", "type": "dropdown", "required": True,
+             "options": "USD,EUR,GBP,INR,CNY,JPY,SGD,AUD,CAD,MYR,THB,VND"},
+            {"name": "invoice_number", "label": "Invoice Number", "type": "text", "required": False, "options": ""},
+            {"name": "invoice_date", "label": "Invoice Date", "type": "date", "required": False, "options": ""},
+            {"name": "reference_notes", "label": "Reference Notes", "type": "text", "required": False, "options": ""},
         ]
-
-        for idx, name in enumerate(issue_types):
+        for name in issue_types:
             form = IssueForm(name=name, is_active=True, fields=default_fields_base)
             db.session.add(form)
-
         db.session.commit()

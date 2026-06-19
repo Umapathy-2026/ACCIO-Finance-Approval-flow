@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% block title %}Create Ticket - ACCIO{% endblock %}
+{% block title %}Create Request - ACCIO{% endblock %}
 {% block content %}
 <div style="margin-bottom:28px;">
-    <h1 style="font-size:22px;font-weight:700;color:var(--text)">Create Ticket</h1>
+    <h1 style="font-size:22px;font-weight:700;color:var(--text)">Create Request</h1>
     <p style="font-size:14px;color:var(--text-muted);margin-top:4px">Submit a new issue or request for processing</p>
 </div>
 
@@ -47,7 +47,7 @@
             <a href="{{ url_for('req.dashboard') }}" class="btn-secondary">Cancel</a>
             <button type="submit" class="btn-primary">
                 <i data-lucide="send" style="width:16px;height:16px;"></i>
-                Submit Ticket
+                Submit Request
             </button>
         </div>
     </form>

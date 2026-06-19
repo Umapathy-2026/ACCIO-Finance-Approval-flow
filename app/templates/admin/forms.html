@@ -1,9 +1,15 @@
 {% extends "base.html" %}
 {% block title %}Form Management - ACCIO{% endblock %}
 {% block content %}
-<div style="margin-bottom:28px;">
-    <h1 style="font-size:22px;font-weight:700;color:var(--text);margin:0;">Issue Forms</h1>
-    <p style="font-size:14px;color:var(--text-muted);margin-top:4px">Manage the 21 ticket issue types and their custom fields</p>
+<div style="margin-bottom:28px;display:flex;justify-content:space-between;align-items:flex-start;">
+    <div>
+        <h1 style="font-size:22px;font-weight:700;color:var(--text);margin:0;">Issue Forms</h1>
+        <p style="font-size:14px;color:var(--text-muted);margin-top:4px">Manage ticket issue types and their custom fields</p>
+    </div>
+    <button class="btn-primary" onclick="openCreateFormModal()">
+        <i data-lucide="plus" style="width:16px;height:16px;"></i>
+        Create Form
+    </button>
 </div>
 
 <div class="card" style="padding:0;overflow:hidden;">
@@ -55,4 +61,37 @@
         </tbody>
     </table>
 </div>
+
+<!-- Create Form Modal -->
+<div class="modal-overlay" id="createFormModal">
+    <div class="modal" style="width:520px;">
+        <h3 class="modal-title">Create New Issue Form</h3>
+        <p class="modal-desc">Add a new issue type to the system</p>
+        <form method="POST" action="{{ url_for('admin.create_form') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div style="margin-bottom:16px;">
+                <label class="form-label" for="form_name">Form Name <span style="color:#dc2626;">*</span></label>
+                <input type="text" id="form_name" name="form_name" class="form-input" required placeholder="e.g., Invoice Dispute, Payment Request">
+            </div>
+            <div style="margin-bottom:16px;">
+                <label class="form-label">Initial Fields</label>
+                <p style="font-size:13px;color:var(--text-muted);margin:4px 0 12px;">You can add more fields after creating the form.</p>
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;">
+                <button type="button" class="btn-secondary" onclick="document.getElementById('createFormModal').classList.remove('active')">Cancel</button>
+                <button type="submit" class="btn-primary">
+                    <i data-lucide="plus" style="width:16px;height:16px;"></i>
+                    Create Form
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openCreateFormModal() {
+    document.getElementById('form_name').value = '';
+    document.getElementById('createFormModal').classList.add('active');
+}
+</script>
 {% endblock %}

@@ -94,8 +94,10 @@ def forgot_password():
 
         user = User.query.filter_by(email=email).first()
         if user:
+            import hashlib
             token = secrets.token_urlsafe(48)
-            user.reset_token = token
+            token_hash = hashlib.sha256(token.encode()).hexdigest()
+            user.reset_token = token_hash
             user.reset_token_expiry = datetime.now(timezone.utc) + timedelta(hours=1)
             db.session.commit()
 
@@ -126,7 +128,9 @@ def forgot_password():
 
 @auth_bp.route('/reset-password/<token>', methods=['GET', 'POST'])
 def reset_password(token):
-    user = User.query.filter_by(reset_token=token).first()
+    import hashlib
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    user = User.query.filter_by(reset_token=token_hash).first()
 
     if not user or not user.reset_token_expiry or user.reset_token_expiry < datetime.now(timezone.utc):
         flash('This reset link is invalid or has expired.', 'error')

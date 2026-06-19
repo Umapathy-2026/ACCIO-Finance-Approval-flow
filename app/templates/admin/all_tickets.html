@@ -1,9 +1,14 @@
 {% extends "base.html" %}
 {% block title %}All Tickets - ACCIO{% endblock %}
 {% block content %}
-<div style="margin-bottom:28px;">
-    <h1 style="font-size:22px;font-weight:700;color:var(--text);margin:0;">All Tickets</h1>
-    <p style="font-size:14px;color:var(--text-muted);margin-top:4px;">View all tickets in the system</p>
+<div style="margin-bottom:28px;display:flex;justify-content:space-between;align-items:flex-start;">
+    <div>
+        <h1 style="font-size:22px;font-weight:700;color:var(--text);margin:0;">All Tickets</h1>
+        <p style="font-size:14px;color:var(--text-muted);margin-top:4px;">View all tickets in the system</p>
+    </div>
+    <button class="btn-primary" onclick="exportToExcel()" style="white-space:nowrap;">
+        <i data-lucide="download" style="width:16px;height:16px;"></i> Export to Excel
+    </button>
 </div>
 
 {% if cap_hit %}
@@ -27,6 +32,8 @@
         <option value="Needs Clarification">Needs Clarification</option>
         <option value="Sent to Fulfilment">Sent to Fulfilment</option>
     </select>
+    <input type="date" class="filter-select" id="admDateFrom" onchange="applyAdmFilters()" style="min-width:140px;" title="From date">
+    <input type="date" class="filter-select" id="admDateTo" onchange="applyAdmFilters()" style="min-width:140px;" title="To date">
     <button class="btn-secondary" id="admClear" onclick="clearAdmFilters()" style="display:none;padding:6px 12px;font-size:13px;">
         <i data-lucide="x" style="width:14px;height:14px;"></i> Clear
     </button>
@@ -139,7 +146,7 @@ function applyAdmFilters() {
 function pgBtn(text, onClick, disabled, active) {
     var b = document.createElement('button'); b.className='page-btn'+(active?' active':''); b.textContent=text; b.disabled=!onClick; if(onClick)b.onclick=onClick; return b;
 }
-function clearAdmFilters() { document.getElementById('admSearch').value=''; document.getElementById('admStatus').value=''; admPage=1; applyAdmFilters(); }
+function clearAdmFilters() { document.getElementById('admSearch').value=''; document.getElementById('admStatus').value=''; document.getElementById('admDateFrom').value=''; document.getElementById('admDateTo').value=''; admPage=1; applyAdmFilters(); }
 function sortAdmTable(col) {
     if (admSort.col === col) admSort.dir = admSort.dir==='asc'?'desc':'asc';
     else { admSort.col=col; admSort.dir='asc'; }
@@ -149,5 +156,11 @@ function sortAdmTable(col) {
     applyAdmFilters();
 }
 document.addEventListener('DOMContentLoaded', function() { if (admTickets.length > 0) applyAdmFilters(); });
+
+function exportToExcel() {
+    var search = document.getElementById('admSearch').value;
+    var status = document.getElementById('admStatus').value;
+    window.location = '/admin/export?search=' + encodeURIComponent(search) + '&status=' + encodeURIComponent(status);
+}
 </script>
 {% endblock %}

@@ -5,14 +5,19 @@
     <a href="{{ url_for('admin.forms') }}" style="font-size:13px;color:var(--text-muted);text-decoration:none;display:inline-flex;align-items:center;gap:4px;margin-bottom:12px;">
         <i data-lucide="arrow-left" style="width:14px;height:14px;"></i> Back to Forms
     </a>
-    <h1 style="font-size:22px;font-weight:700;color:var(--text);margin:0;">{{ form.name }}</h1>
-    <p style="font-size:14px;color:var(--text-muted);margin-top:4px">Configure custom fields for this issue type</p>
+    <h1 style="font-size:22px;font-weight:700;color:var(--text);margin:0;">Edit Form</h1>
+    <p style="font-size:14px;color:var(--text-muted);margin-top:4px">Configure form name and custom fields</p>
 </div>
 
 <div class="card" style="max-width:800px;">
     <form method="POST" id="formEditor">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="fields_json" id="fieldsJson" value='{{ form.fields|tojson|safe }}'>
+        
+        <div style="margin-bottom:24px;">
+            <label class="form-label" for="form_name">Form Name <span style="color:#dc2626;">*</span></label>
+            <input type="text" id="form_name" name="form_name" class="form-input" value="{{ form.name|e }}" required placeholder="e.g., Invoice Dispute" style="max-width:400px;">
+        </div>
 
         <div style="margin-bottom:24px;">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">

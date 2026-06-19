@@ -8,6 +8,7 @@ from openpyxl.styles import PatternFill, Font, Alignment
 
 from app import db
 from app.models import User, IssueForm, Ticket, ApprovalLog, Notification, TicketStatus, ApprovalAction, AdminAuditLog
+import re
 from app.routes.auth import role_required
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin', template_folder='../templates/admin')
@@ -88,6 +89,19 @@ def users():
         if User.query.filter_by(email=email).first():
             flash('A user with this email already exists.', 'error')
             return redirect(url_for('admin.users'))
+
+        from app.routes.auth import validate_password_strength
+        errors = validate_password_strength(password)
+        if errors:
+            for err in errors:
+                flash(err, 'error')
+            return redirect(url_for('admin.users'))
+
+        if manager_id:
+            manager = User.query.filter_by(id=manager_id, is_active=True).first()
+            if not manager or manager.role not in ('approver', 'admin'):
+                flash('Invalid manager assignment. Manager must be an active approver or admin.', 'error')
+                return redirect(url_for('admin.users'))
 
         user = User(
             email=email,
@@ -270,6 +284,28 @@ def toggle_form(form_id):
     return redirect(url_for('admin.forms'))
 
 
+@admin_bp.route('/forms/create', methods=['POST'])
+@login_required
+@role_required('admin')
+def create_form():
+    name = request.form.get('form_name', '').strip()
+    if not name:
+        flash('Form name is required.', 'error')
+        return redirect(url_for('admin.forms'))
+    
+    if IssueForm.query.filter_by(name=name).first():
+        flash('A form with this name already exists.', 'error')
+        return redirect(url_for('admin.forms'))
+    
+    new_form = IssueForm(name=name, fields=[], is_active=True)
+    db.session.add(new_form)
+    db.session.flush()
+    log_admin_action('FORM_CREATED', 'form', new_form.id, {'form_name': name})
+    db.session.commit()
+    flash(f'Form "{name}" created successfully.', 'success')
+    return redirect(url_for('admin.edit_form', form_id=new_form.id))
+
+
 @admin_bp.route('/forms/<int:form_id>/edit', methods=['GET', 'POST'])
 @login_required
 @role_required('admin')
@@ -277,10 +313,22 @@ def edit_form(form_id):
     form = IssueForm.query.get_or_404(form_id)
 
     if request.method == 'POST':
+        form_name = request.form.get('form_name', '').strip()
         fields_json = request.form.get('fields_json', '[]')
+        
+        if not form_name:
+            flash('Form name is required.', 'error')
+            return redirect(url_for('admin.edit_form', form_id=form_id))
+        
+        # Check if name changed and new name doesn't exist
+        if form_name != form.name and IssueForm.query.filter_by(name=form_name).first():
+            flash('A form with this name already exists.', 'error')
+            return redirect(url_for('admin.edit_form', form_id=form_id))
+        
         import json
         try:
             fields = json.loads(fields_json)
+            form.name = form_name
             form.fields = fields
             log_admin_action('FORM_UPDATED', 'form', form.id,
                             {'form_name': form.name, 'field_count': len(fields)})
@@ -293,15 +341,21 @@ def edit_form(form_id):
 
     return render_template('admin/edit_form.html', form=form)
 
+def _sanitize_filename_part(value, default='all'):
+    return re.sub(r'[^a-zA-Z0-9_\-]', '', str(value or default))[:30]
+
 
 @admin_bp.route('/export')
 @login_required
 @role_required('admin')
 def export_tickets():
-    from_dt = request.args.get('from')
-    to_dt = request.args.get('to')
-    status = request.args.get('status', 'all')
+    from_dt = _sanitize_filename_part(request.args.get('from'))
+    to_dt = _sanitize_filename_part(request.args.get('to'))
+    status_val = _sanitize_filename_part(request.args.get('status'))
     form_id = request.args.get('form_id', type=int)
+    
+    # Use status_val for filtering
+    status = status_val
 
     query = Ticket.query
 
@@ -351,7 +405,7 @@ def export_tickets():
             t.assignee.display_name if t.assignee else '',
             t.created_at.strftime('%Y-%m-%d %H:%M') if t.created_at else '',
             t.updated_at.strftime('%Y-%m-%d %H:%M') if t.updated_at else '',
-            (datetime.now(timezone.utc) - t.created_at).days if t.created_at else 0,
+            (datetime.utcnow() - t.created_at).days if t.created_at else 0,
             t.approval_logs.count()
         ]
         for col, val in enumerate(row_data, 1):
@@ -385,3 +439,71 @@ def audit_log():
         AdminAuditLog.timestamp.desc()
     ).paginate(page=page, per_page=50, error_out=False)
     return render_template('admin/audit_log.html', logs=logs)
+
+
+@admin_bp.route('/export-audit')
+@login_required
+@role_required('admin')
+def export_audit():
+    search = request.args.get('search', '').strip().lower()
+    action_filter = request.args.get('action', '').strip()
+
+    query = AdminAuditLog.query
+    if search:
+        query = query.filter(
+            db.or_(
+                AdminAuditLog.action.ilike(f'%{search}%'),
+                AdminAuditLog.target_type.ilike(f'%{search}%'),
+                AdminAuditLog.target_id.ilike(f'%{search}%')
+            )
+        )
+    if action_filter:
+        query = query.filter(AdminAuditLog.action == action_filter)
+
+    logs = query.order_by(AdminAuditLog.timestamp.desc()).all()
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Audit Log Export'
+
+    header_fill = PatternFill(start_color='01696f', end_color='01696f', fill_type='solid')
+    header_font = Font(color='ffffff', bold=True, size=11)
+    alt_fill = PatternFill(start_color='f7f6f2', end_color='f7f6f2', fill_type='solid')
+
+    headers = ['Timestamp', 'Admin', 'Action', 'Target Type', 'Target ID', 'IP Address', 'Details']
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=h)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal='center')
+
+    for i, log in enumerate(logs, 2):
+        row_data = [
+            log.timestamp.strftime('%Y-%m-%d %H:%M:%S') if log.timestamp else '',
+            log.actor.display_name if log.actor else '—',
+            log.action,
+            log.target_type or '—',
+            log.target_id or '—',
+            log.ip_address or '—',
+            str(log.details) if log.details else ''
+        ]
+        for col, val in enumerate(row_data, 1):
+            cell = ws.cell(row=i, column=col, value=val)
+            if (i - 2) % 2 == 1:
+                cell.fill = alt_fill
+
+    for col in ws.columns:
+        max_len = 15
+        col_letter = col[0].column_letter
+        for cell in col:
+            if cell.value:
+                max_len = max(max_len, min(len(str(cell.value)), 50))
+        ws.column_dimensions[col_letter].width = max_len + 2
+
+    filename = f'ACCIO_audit_log_{datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")}.xlsx'
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    return send_file(output, as_attachment=True, download_name=filename,
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
