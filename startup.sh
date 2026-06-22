@@ -1,4 +1,10 @@
 #!/bin/bash
-# Azure App Service startup script
-python -m flask db upgrade 2>/dev/null || true
-gunicorn --bind=0.0.0.0:8000 --workers=2 --timeout=120 --access-logfile=- --error-logfile=- app:app
+# Install ODBC Driver 18 if not already present
+if ! command -v odbcinst &> /dev/null; then
+    curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add -
+    curl https://packages.microsoft.com/config/debian/11/prod.list > /etc/apt/sources.list.d/mssql-release.list
+    apt-get update -qq
+    ACCEPT_EULA=Y apt-get install -y -qq msodbcsql18 unixodbc-dev
+fi
+
+gunicorn --config gunicorn.conf.py app:app
