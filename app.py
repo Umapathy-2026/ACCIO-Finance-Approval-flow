@@ -1,9 +1,6 @@
-import os
-from app import create_app
+from flask import Flask
+app = Flask(__name__)
 
-app = create_app()
-
-if __name__ == '__main__':
-    debug_mode = os.getenv('FLASK_DEBUG', 'false').lower() == 'true'
-    port = int(os.getenv('PORT', 5000))
-    app.run(debug=debug_mode, host='0.0.0.0', port=port)
+@app.route('/')
+def hello():
+    return '<h1>Azure is working!</h1>'
