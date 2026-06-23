@@ -1,5 +1,5 @@
 from datetime import datetime, timezone, timedelta
-from flask import Blueprint, render_template, request, redirect, url_for, flash, send_file, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, send_file, jsonify, current_app
 from flask_login import login_required, current_user
 from werkzeug.security import generate_password_hash
 import io
@@ -82,6 +82,10 @@ def users():
         role = request.form.get('role', 'user')
         manager_id = request.form.get('manager_id', type=int)
 
+        scope = request.form.get('scope', '')
+        if scope not in ('AR', 'GL', ''):
+            scope = ''
+
         if not display_name or not email or not password:
             flash('Name, email, and password are required.', 'error')
             return redirect(url_for('admin.users'))
@@ -109,12 +113,13 @@ def users():
             password_hash=generate_password_hash(password),
             role=role,
             manager_id=manager_id if manager_id else None,
-            is_active=True
+            is_active=True,
+            scope=scope
         )
         db.session.add(user)
         db.session.flush()
         log_admin_action('USER_CREATED', 'user', user.id,
-                        {'email': email, 'role': role, 'manager_id': manager_id})
+                        {'email': email, 'role': role, 'manager_id': manager_id, 'scope': scope})
         db.session.commit()
         flash(f'User {display_name} created successfully.', 'success')
         return redirect(url_for('admin.users'))
@@ -135,12 +140,16 @@ def edit_user(user_id):
     role = request.form.get('role', 'user')
     manager_id = request.form.get('manager_id', type=int)
     is_active = request.form.get('is_active') == 'on'
+    scope = request.form.get('scope', '')
+    if scope not in ('AR', 'GL', ''):
+        scope = ''
 
     if display_name:
         user.display_name = display_name
     user.role = role
     user.manager_id = manager_id if manager_id else None
     user.is_active = is_active
+    user.scope = scope
 
     password = request.form.get('password', '')
     if password:
@@ -289,6 +298,10 @@ def toggle_form(form_id):
 @role_required('admin')
 def create_form():
     name = request.form.get('form_name', '').strip()
+    scope = request.form.get('form_scope', '')
+    if scope not in ('AR', 'GL', ''):
+        scope = ''
+
     if not name:
         flash('Form name is required.', 'error')
         return redirect(url_for('admin.forms'))
@@ -297,10 +310,10 @@ def create_form():
         flash('A form with this name already exists.', 'error')
         return redirect(url_for('admin.forms'))
     
-    new_form = IssueForm(name=name, fields=[], is_active=True)
+    new_form = IssueForm(name=name, fields=[], is_active=True, scope=scope)
     db.session.add(new_form)
     db.session.flush()
-    log_admin_action('FORM_CREATED', 'form', new_form.id, {'form_name': name})
+    log_admin_action('FORM_CREATED', 'form', new_form.id, {'form_name': name, 'scope': scope})
     db.session.commit()
     flash(f'Form "{name}" created successfully.', 'success')
     return redirect(url_for('admin.edit_form', form_id=new_form.id))
@@ -315,6 +328,9 @@ def edit_form(form_id):
     if request.method == 'POST':
         form_name = request.form.get('form_name', '').strip()
         fields_json = request.form.get('fields_json', '[]')
+        scope = request.form.get('form_scope', '')
+        if scope not in ('AR', 'GL', ''):
+            scope = ''
         
         if not form_name:
             flash('Form name is required.', 'error')
@@ -330,8 +346,9 @@ def edit_form(form_id):
             fields = json.loads(fields_json)
             form.name = form_name
             form.fields = fields
+            form.scope = scope
             log_admin_action('FORM_UPDATED', 'form', form.id,
-                            {'form_name': form.name, 'field_count': len(fields)})
+                            {'form_name': form.name, 'field_count': len(fields), 'scope': scope})
             db.session.commit()
             flash(f'Form "{form.name}" updated successfully.', 'success')
         except json.JSONDecodeError:
@@ -363,12 +380,14 @@ def export_tickets():
         try:
             fd = datetime.strptime(from_dt, '%Y-%m-%d')
             query = query.filter(Ticket.created_at >= fd)
-        except: pass
+        except Exception as e:
+            current_app.logger.warning(f"Invalid 'from' date '{from_dt}': {e}")
     if to_dt:
         try:
             td = datetime.strptime(to_dt, '%Y-%m-%d') + timedelta(days=1)
             query = query.filter(Ticket.created_at <= td)
-        except: pass
+        except Exception as e:
+            current_app.logger.warning(f"Invalid 'to' date '{to_dt}': {e}")
     if status and status != 'all':
         query = query.filter(Ticket.current_status == status)
     if form_id:

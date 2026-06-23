@@ -17,6 +17,16 @@ from app.routes.auth import role_required
 req_bp = Blueprint('req', __name__, url_prefix='', template_folder='../templates/requester')
 
 
+def sanitize_cell(value):
+    """Mitigate Excel formula injection by prefixing a single quote to cells
+    that begin with a formula-significant character.
+    Applies only to strings starting with '=', '+', '-', or '@'.
+    """
+    if isinstance(value, str) and value and value[0] in ('=', '+', '-', '@'):
+        return "'" + value
+    return value
+
+
 def generate_ticket_number():
     import secrets as _secrets
     from datetime import datetime, timezone
@@ -130,6 +140,9 @@ def new_ticket():
         if not subject:
             subject = f'{issue_form.name}'
 
+        # Inherit scope from form
+        ticket_scope = issue_form.scope
+
         # Generate ticket number with retry for race conditions
         ticket_number = generate_ticket_number()
 
@@ -145,6 +158,7 @@ def new_ticket():
                 payload=payload,
                 attachment_name=attachment_name,
                 attachment_path=attachment_path,
+                scope=ticket_scope,
                 current_status='Pending'
             )
             db.session.add(ticket)
@@ -183,7 +197,13 @@ def new_ticket():
         flash(f'Ticket {ticket_number} created successfully!', 'success')
         return redirect(url_for('req.ticket_detail', ticket_id=ticket.id))
 
-    forms = IssueForm.query.filter_by(is_active=True).all()
+    # Filter forms by user's scope (if user has a specific scope)
+    forms_query = IssueForm.query.filter_by(is_active=True)
+    if current_user.scope:
+        forms_query = forms_query.filter(
+            db.or_(IssueForm.scope == current_user.scope, IssueForm.scope == '')
+        )
+    forms = forms_query.all()
     return render_template('requester/new_ticket.html', forms=forms)
 
 
@@ -280,15 +300,15 @@ def export_ticket(ticket_id):
     alt_fill = PatternFill(start_color='f7f6f2', end_color='f7f6f2', fill_type='solid')
 
     details = [
-        ('Ticket Number', ticket.ticket_number),
-        ('Issue Type', ticket.issue_form.name if ticket.issue_form else ''),
-        ('Subject', ticket.subject),
-        ('Description', ticket.description or ''),
-        ('Status', ticket.current_status),
-        ('Created By', ticket.creator.display_name if ticket.creator else ''),
-        ('Assigned To', ticket.assignee.display_name if ticket.assignee else ''),
-        ('Created At', ticket.created_at.strftime('%Y-%m-%d %H:%M') if ticket.created_at else ''),
-        ('Updated At', ticket.updated_at.strftime('%Y-%m-%d %H:%M') if ticket.updated_at else ''),
+        ('Ticket Number', sanitize_cell(ticket.ticket_number)),
+        ('Issue Type', sanitize_cell(ticket.issue_form.name if ticket.issue_form else '')),
+        ('Subject', sanitize_cell(ticket.subject)),
+        ('Description', sanitize_cell(ticket.description or '')),
+        ('Status', sanitize_cell(ticket.current_status)),
+        ('Created By', sanitize_cell(ticket.creator.display_name if ticket.creator else '')),
+        ('Assigned To', sanitize_cell(ticket.assignee.display_name if ticket.assignee else '')),
+        ('Created At', sanitize_cell(ticket.created_at.strftime('%Y-%m-%d %H:%M') if ticket.created_at else '')),
+        ('Updated At', sanitize_cell(ticket.updated_at.strftime('%Y-%m-%d %H:%M') if ticket.updated_at else '')),
     ]
     if ticket.payload:
         for key, value in ticket.payload.items():
@@ -296,7 +316,7 @@ def export_ticket(ticket_id):
                 continue
             if isinstance(value, dict) and 'original_name' in value:
                 value = value['original_name']
-            details.append((key.replace('_', ' ').title(), str(value)))
+            details.append((sanitize_cell(key.replace('_', ' ').title()), sanitize_cell(str(value))))
 
     for col, h in enumerate(['Field', 'Value'], 1):
         cell = ws1.cell(row=1, column=col, value=h)
@@ -304,8 +324,10 @@ def export_ticket(ticket_id):
         cell.font = header_font
 
     for i, (field, val) in enumerate(details, 2):
-        ws1.cell(row=i, column=1, value=field).fill = alt_fill if (i-2)%2 else PatternFill()
-        ws1.cell(row=i, column=2, value=val).fill = alt_fill if (i-2)%2 else PatternFill()
+        safe_field = sanitize_cell(field)
+        safe_val = sanitize_cell(val)
+        ws1.cell(row=i, column=1, value=safe_field).fill = alt_fill if (i-2)%2 else PatternFill()
+        ws1.cell(row=i, column=2, value=safe_val).fill = alt_fill if (i-2)%2 else PatternFill()
 
     ws1.column_dimensions['A'].width = 25
     ws1.column_dimensions['B'].width = 45
@@ -318,9 +340,13 @@ def export_ticket(ticket_id):
 
     logs = ticket.approval_logs.order_by(ApprovalLog.timestamp.desc()).all()
     for i, log in enumerate(logs, 2):
-        row_data = [i-1, log.action, log.actor.display_name if log.actor else '',
-                    log.comment or '',
-                    log.timestamp.strftime('%Y-%m-%d %H:%M') if log.timestamp else '']
+        row_data = [
+            i-1,
+            sanitize_cell(log.action),
+            sanitize_cell(log.actor.display_name if log.actor else ''),
+            sanitize_cell(log.comment or ''),
+            sanitize_cell(log.timestamp.strftime('%Y-%m-%d %H:%M') if log.timestamp else '')
+        ]
         for col, val in enumerate(row_data, 1):
             cell = ws2.cell(row=i, column=col, value=val)
             if (i-2) % 2 == 1:

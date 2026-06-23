@@ -41,6 +41,7 @@
                 <th>Name</th>
                 <th>Email</th>
                 <th>Role</th>
+                <th>Scope</th>
                 <th>Assigned Approver</th>
                 <th>Status</th>
                 <th>Actions</th>
@@ -52,6 +53,7 @@
                 <td style="font-weight:500;">{{ user.display_name }}</td>
                 <td style="color:var(--text-muted);">{{ user.email }}</td>
                 <td><span class="role-badge" style="text-transform:capitalize;font-size:12px;">{{ user.role }}</span></td>
+                <td style="color:var(--text-muted);font-size:13px;">{% if user.scope %}<span class="badge" style="background:var(--primary-light);color:var(--primary);">{{ user.scope }}</span>{% else %}—{% endif %}</td>
                 <td style="color:var(--text-muted);font-size:13px;">{{ user.manager.display_name if user.manager else '—' }}</td>
                 <td>
                     {% if user.is_active %}
@@ -62,7 +64,7 @@
                 </td>
                 <td>
                     <div style="display:flex;gap:4px;flex-wrap:wrap;">
-                        <button class="btn-secondary" style="padding:4px 8px;font-size:11px;" onclick="openEditModal({{ user.id }}, '{{ user.display_name|e }}', '{{ user.email|e }}', '{{ user.role }}', {{ user.manager_id if user.manager_id else 'null' }}, {{ 'true' if user.is_active else 'false' }})">
+                <button class="btn-secondary" style="padding:4px 8px;font-size:11px;" onclick="openEditModal({{ user.id }}, '{{ user.display_name|e }}', '{{ user.email|e }}', '{{ user.role }}', '{{ user.scope }}', {{ user.manager_id if user.manager_id else 'null' }}, {{ 'true' if user.is_active else 'false' }})">
                             <i data-lucide="edit" style="width:11px;height:11px;"></i>
                             Edit
                         </button>
@@ -122,13 +124,21 @@
                 <label class="form-label" for="password">Password <span style="color:#dc2626;">*</span></label>
                 <input type="password" id="password" name="password" class="form-input" required>
             </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
                 <div style="margin-bottom:16px;">
                     <label class="form-label" for="role">Role</label>
                     <select id="role" name="role" class="form-input">
                         <option value="user">User</option>
                         <option value="approver">Approver</option>
                         <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <div style="margin-bottom:16px;">
+                    <label class="form-label" for="scope">Scope of Work</label>
+                    <select id="scope" name="scope" class="form-input">
+                        <option value="">All</option>
+                        <option value="AR">AR</option>
+                        <option value="GL">GL</option>
                     </select>
                 </div>
                 <div style="margin-bottom:16px;">
@@ -160,13 +170,21 @@
                 <label class="form-label" for="edit_name">Full Name</label>
                 <input type="text" id="edit_name" name="display_name" class="form-input">
             </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
                 <div style="margin-bottom:16px;">
                     <label class="form-label" for="edit_role">Role</label>
                     <select id="edit_role" name="role" class="form-input">
                         <option value="user">User</option>
                         <option value="approver">Approver</option>
                         <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <div style="margin-bottom:16px;">
+                    <label class="form-label" for="edit_scope">Scope of Work</label>
+                    <select id="edit_scope" name="scope" class="form-input">
+                        <option value="">All</option>
+                        <option value="AR">AR</option>
+                        <option value="GL">GL</option>
                     </select>
                 </div>
                 <div style="margin-bottom:16px;">
@@ -220,10 +238,11 @@
 </div>
 
 <script>
-function openEditModal(id, name, email, role, managerId, isActive) {
+function openEditModal(id, name, email, role, scope, managerId, isActive) {
     document.getElementById('editUserForm').action = '/admin/users/' + id + '/edit';
     document.getElementById('edit_name').value = name;
     document.getElementById('edit_role').value = role;
+    document.getElementById('edit_scope').value = scope || '';
     document.getElementById('edit_manager').value = managerId || '';
     document.getElementById('edit_active').checked = isActive;
     document.getElementById('edit_password').value = '';

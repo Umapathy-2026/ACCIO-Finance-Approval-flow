@@ -19,17 +19,47 @@ def create_notification(user_id, title, message, link=None):
 @login_required
 @role_required('approver', 'admin')
 def queue():
-    active_tickets = Ticket.query.filter(
+    """Combined queue (default) — shows all tickets assigned to this approver."""
+    return redirect(url_for('appr.queue_ar'))
+
+
+def _queue_by_scope(scope):
+    """Helper to get active tickets for current approver, optionally filtered by scope."""
+    from sqlalchemy import or_
+
+    query = Ticket.query.filter(
         Ticket.assigned_to == current_user.id,
         Ticket.current_status.in_([
             TicketStatus.PENDING.value,
             TicketStatus.UNDER_REVIEW.value,
             TicketStatus.NEEDS_CLARIFICATION.value
         ])
-    ).order_by(Ticket.created_at.desc()).limit(500).all()
+    )
 
-    return render_template('approver/queue.html',
-                           tickets=active_tickets)
+    if scope:
+        # Show tickets with matching scope OR empty scope (unscoped forms)
+        query = query.filter(or_(Ticket.scope == scope, Ticket.scope == ''))
+    else:
+        # For combined view, show all
+        pass
+
+    return query.order_by(Ticket.created_at.desc()).limit(500).all()
+
+
+@appr_bp.route('/queue/ar')
+@login_required
+@role_required('approver', 'admin')
+def queue_ar():
+    tickets = _queue_by_scope('AR')
+    return render_template('approver/queue.html', tickets=tickets, queue_scope='AR')
+
+
+@appr_bp.route('/queue/gl')
+@login_required
+@role_required('approver', 'admin')
+def queue_gl():
+    tickets = _queue_by_scope('GL')
+    return render_template('approver/queue.html', tickets=tickets, queue_scope='GL')
 
 
 @appr_bp.route('/history')

@@ -2,7 +2,11 @@
 {% block title %}Approval Queue - ACCIO{% endblock %}
 {% block content %}
 <div style="margin-bottom:28px;">
-    <h1 style="font-size:22px;font-weight:700;color:var(--text)">Approval Queue</h1>
+    <h1 style="font-size:22px;font-weight:700;color:var(--text)">
+        {% if queue_scope == 'AR' %}AR Approval Queue
+        {% elif queue_scope == 'GL' %}GL Approval Queue
+        {% else %}Approval Queue{% endif %}
+    </h1>
     <p style="font-size:14px;color:var(--text-muted);margin-top:4px">Tickets awaiting your review and decision</p>
 </div>
 

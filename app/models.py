@@ -43,6 +43,7 @@ class User(UserMixin, db.Model):
     role = db.Column(db.String(20), nullable=False, default='user')
     manager_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     is_active = db.Column(db.Boolean, default=True)
+    scope = db.Column(db.String(10), nullable=False, default='')
     created_at = db.Column(db.DateTime, default=utcnow)
     failed_attempts = db.Column(db.Integer, default=0)
     locked_until = db.Column(db.DateTime, nullable=True)
@@ -64,6 +65,7 @@ class IssueForm(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(500), nullable=False)
+    scope = db.Column(db.String(10), nullable=False, default='')
     is_active = db.Column(db.Boolean, default=True)
     fields = db.Column(db.JSON, nullable=False, default=list)
 
@@ -93,6 +95,7 @@ class Ticket(db.Model):
     payload = db.Column(db.JSON, nullable=False, default=dict)
     attachment_name = db.Column(db.String(255), nullable=True)
     attachment_path = db.Column(db.String(500), nullable=True)
+    scope = db.Column(db.String(10), nullable=False, default='')
     current_status = db.Column(db.String(30), nullable=False, default='Pending')
     created_at = db.Column(db.DateTime, default=utcnow)
     updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)

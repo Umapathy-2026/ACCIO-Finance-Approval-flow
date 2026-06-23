@@ -18,8 +18,9 @@
             <tr>
                 <th style="width:40px;">#</th>
                 <th>Form Name</th>
-                <th style="width:100px;">Fields</th>
-                <th style="width:120px;">Status</th>
+                <th style="width:80px;">Scope</th>
+                <th style="width:80px;">Fields</th>
+                <th style="width:100px;">Status</th>
                 <th style="width:160px;">Actions</th>
             </tr>
         </thead>
@@ -30,6 +31,7 @@
                 <td>
                     <span style="font-weight:500;">{{ form.name }}</span>
                 </td>
+                <td style="color:var(--text-muted);font-size:13px;">{% if form.scope %}<span class="badge" style="background:var(--primary-light);color:var(--primary);">{{ form.scope }}</span>{% else %}<span style="color:var(--text-faint);">All</span>{% endif %}</td>
                 <td style="color:var(--text-muted);font-size:13px;">{{ form.fields|length }} fields</td>
                 <td>
                     {% if form.is_active %}
@@ -72,6 +74,14 @@
             <div style="margin-bottom:16px;">
                 <label class="form-label" for="form_name">Form Name <span style="color:#dc2626;">*</span></label>
                 <input type="text" id="form_name" name="form_name" class="form-input" required placeholder="e.g., Invoice Dispute, Payment Request">
+            </div>
+            <div style="margin-bottom:16px;">
+                <label class="form-label" for="form_scope">Scope of Work</label>
+                <select id="form_scope" name="form_scope" class="form-input">
+                    <option value="">All</option>
+                    <option value="AR">AR</option>
+                    <option value="GL">GL</option>
+                </select>
             </div>
             <div style="margin-bottom:16px;">
                 <label class="form-label">Initial Fields</label>

@@ -14,9 +14,19 @@
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="fields_json" id="fieldsJson" value='{{ form.fields|tojson|safe }}'>
         
-        <div style="margin-bottom:24px;">
-            <label class="form-label" for="form_name">Form Name <span style="color:#dc2626;">*</span></label>
-            <input type="text" id="form_name" name="form_name" class="form-input" value="{{ form.name|e }}" required placeholder="e.g., Invoice Dispute" style="max-width:400px;">
+        <div style="margin-bottom:24px;display:flex;gap:16px;align-items:flex-end;">
+            <div style="flex:1;">
+                <label class="form-label" for="form_name">Form Name <span style="color:#dc2626;">*</span></label>
+                <input type="text" id="form_name" name="form_name" class="form-input" value="{{ form.name|e }}" required placeholder="e.g., Invoice Dispute">
+            </div>
+            <div style="width:200px;">
+                <label class="form-label" for="form_scope">Scope of Work</label>
+                <select id="form_scope" name="form_scope" class="form-input">
+                    <option value="">All</option>
+                    <option value="AR" {% if form.scope == 'AR' %}selected{% endif %}>AR</option>
+                    <option value="GL" {% if form.scope == 'GL' %}selected{% endif %}>GL</option>
+                </select>
+            </div>
         </div>
 
         <div style="margin-bottom:24px;">
