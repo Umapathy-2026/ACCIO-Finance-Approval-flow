@@ -14,9 +14,19 @@
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="fields_json" id="fieldsJson" value='{{ form.fields|tojson|safe }}'>
         
-        <div style="margin-bottom:24px;">
-            <label class="form-label" for="form_name">Form Name <span style="color:#dc2626;">*</span></label>
-            <input type="text" id="form_name" name="form_name" class="form-input" value="{{ form.name|e }}" required placeholder="e.g., Invoice Dispute" style="max-width:400px;">
+        <div style="margin-bottom:24px;display:flex;gap:16px;align-items:flex-end;">
+            <div style="flex:1;">
+                <label class="form-label" for="form_name">Form Name <span style="color:#dc2626;">*</span></label>
+                <input type="text" id="form_name" name="form_name" class="form-input" value="{{ form.name|e }}" required placeholder="e.g., Invoice Dispute">
+            </div>
+            <div style="width:200px;">
+                <label class="form-label" for="form_scope">Scope of Work</label>
+                <select id="form_scope" name="form_scope" class="form-input">
+                    <option value="">All</option>
+                    <option value="AR" {% if form.scope == 'AR' %}selected{% endif %}>AR</option>
+                    <option value="GL" {% if form.scope == 'GL' %}selected{% endif %}>GL</option>
+                </select>
+            </div>
         </div>
 
         <div style="margin-bottom:24px;">
@@ -72,7 +82,7 @@ function renderFields() {
         html += '</div>';
         html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">';
         html += '<div><label class="form-label" style="font-size:12px;">Type</label><select class="form-input" onchange="updateField(' + index + ', \'type\', this.value)">';
-        var types = ['text', 'number', 'date', 'dropdown', 'email', 'file'];
+        var types = ['text', 'textarea', 'number', 'date', 'dropdown', 'email', 'file'];
         types.forEach(function(t) {
             html += '<option value="' + t + '"' + (field.type === t ? ' selected' : '') + '>' + t.charAt(0).toUpperCase() + t.slice(1) + '</option>';
         });
@@ -101,7 +111,12 @@ function escapeHtml(str) {
 
 function updateField(index, key, value) {
     fields[index][key] = value;
-    document.getElementById('fieldsJson').value = JSON.stringify(fields);
+    // When type changes, re-render so dropdown options appear/disappear immediately
+    if (key === 'type') {
+        renderFields();
+    } else {
+        document.getElementById('fieldsJson').value = JSON.stringify(fields);
+    }
 }
 
 function updateDropdownOptions(index, value) {

@@ -19,17 +19,47 @@ def create_notification(user_id, title, message, link=None):
 @login_required
 @role_required('approver', 'admin')
 def queue():
-    active_tickets = Ticket.query.filter(
+    """Combined queue (default) — shows all tickets assigned to this approver."""
+    return redirect(url_for('appr.queue_ar'))
+
+
+def _queue_by_scope(scope):
+    """Helper to get active tickets for current approver, optionally filtered by scope."""
+    from sqlalchemy import or_
+
+    query = Ticket.query.filter(
         Ticket.assigned_to == current_user.id,
         Ticket.current_status.in_([
             TicketStatus.PENDING.value,
             TicketStatus.UNDER_REVIEW.value,
             TicketStatus.NEEDS_CLARIFICATION.value
         ])
-    ).order_by(Ticket.created_at.desc()).limit(500).all()
+    )
 
-    return render_template('approver/queue.html',
-                           tickets=active_tickets)
+    if scope:
+        # Show tickets with matching scope OR empty scope (unscoped forms)
+        query = query.filter(or_(Ticket.scope == scope, Ticket.scope == ''))
+    else:
+        # For combined view, show all
+        pass
+
+    return query.order_by(Ticket.created_at.desc()).limit(500).all()
+
+
+@appr_bp.route('/queue/ar')
+@login_required
+@role_required('approver', 'admin')
+def queue_ar():
+    tickets = _queue_by_scope('AR')
+    return render_template('approver/queue.html', tickets=tickets, queue_scope='AR')
+
+
+@appr_bp.route('/queue/gl')
+@login_required
+@role_required('approver', 'admin')
+def queue_gl():
+    tickets = _queue_by_scope('GL')
+    return render_template('approver/queue.html', tickets=tickets, queue_scope='GL')
 
 
 @appr_bp.route('/history')
@@ -110,7 +140,11 @@ def approve_ticket(ticket_id):
 
     db.session.commit()
     req_url = url_for('req.ticket_detail', ticket_id=ticket.id, _external=True)
-    send_ticket_approved(ticket, req_url)
+    try:
+        send_ticket_approved(ticket, req_url)
+    except Exception:
+        import logging
+        logging.exception('Failed to send approval notification email')
     flash(f'Ticket {ticket.ticket_number} approved and sent to fulfilment.', 'success')
     return redirect(url_for('appr.ticket_detail', ticket_id=ticket.id))
 
@@ -142,7 +176,11 @@ def reject_ticket(ticket_id):
 
     db.session.commit()
     req_url = url_for('req.ticket_detail', ticket_id=ticket.id, _external=True)
-    send_ticket_rejected(ticket, comment, req_url)
+    try:
+        send_ticket_rejected(ticket, comment, req_url)
+    except Exception:
+        import logging
+        logging.exception('Failed to send rejection notification email')
     flash(f'Ticket {ticket.ticket_number} rejected.', 'error')
     return redirect(url_for('appr.ticket_detail', ticket_id=ticket.id))
 
@@ -174,7 +212,11 @@ def send_back_ticket(ticket_id):
 
     db.session.commit()
     req_url = url_for('req.ticket_detail', ticket_id=ticket.id, _external=True)
-    send_ticket_sent_back(ticket, comment, req_url)
+    try:
+        send_ticket_sent_back(ticket, comment, req_url)
+    except Exception:
+        import logging
+        logging.exception('Failed to send sent-back notification email')
     flash(f'Ticket {ticket.ticket_number} sent back for clarification.', 'info')
     return redirect(url_for('appr.ticket_detail', ticket_id=ticket.id))
 
@@ -249,7 +291,11 @@ def bulk_action():
             log_comment = comment or f'Bulk approved by {current_user.display_name}'
             create_notification(ticket.created_by, 'Ticket Approved', f'Your ticket {ticket.ticket_number} has been approved', url_for('req.ticket_detail', ticket_id=ticket.id))
             req_url = url_for('req.ticket_detail', ticket_id=ticket.id, _external=True)
-            send_ticket_approved(ticket, req_url)
+            try:
+                send_ticket_approved(ticket, req_url)
+            except Exception:
+                import logging
+                logging.exception('Failed to send bulk approval email')
         else:
             ticket.current_status = TicketStatus.REJECTED.value
             ticket.updated_at = now
@@ -257,7 +303,11 @@ def bulk_action():
             log_comment = comment or f'Bulk rejected by {current_user.display_name}'
             create_notification(ticket.created_by, 'Ticket Rejected', f'Your ticket {ticket.ticket_number} has been rejected', url_for('req.ticket_detail', ticket_id=ticket.id))
             req_url = url_for('req.ticket_detail', ticket_id=ticket.id, _external=True)
-            send_ticket_rejected(ticket, comment, req_url)
+            try:
+                send_ticket_rejected(ticket, comment, req_url)
+            except Exception:
+                import logging
+                logging.exception('Failed to send bulk rejection email')
 
         log = ApprovalLog(ticket_id=ticket.id, action_by=current_user.id, action=action_name, comment=log_comment)
         db.session.add(log)

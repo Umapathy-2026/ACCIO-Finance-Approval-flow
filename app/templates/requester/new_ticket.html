@@ -19,28 +19,11 @@
             </select>
         </div>
 
-        <div id="dynamic-fields"></div>
-
-        <div style="margin-bottom:20px;">
-            <label class="form-label" for="subject">Subject <span style="color:#dc2626;">*</span></label>
-            <input type="text" id="subject" name="subject" class="form-input" placeholder="Brief description of the issue" required>
-        </div>
-
-        <div style="margin-bottom:20px;">
-            <label class="form-label" for="description">Description</label>
-            <textarea id="description" name="description" class="form-input" placeholder="Provide detailed information about the issue..." rows="4"></textarea>
-        </div>
-
-        <div style="margin-bottom:24px;">
-            <label class="form-label">Attachment</label>
-            <div class="file-upload" onclick="document.getElementById('attachment').click()">
-                <i data-lucide="upload" style="width:20px;height:20px;color:var(--text-muted);margin-bottom:8px;"></i>
-                <p style="font-size:13px;color:var(--text-muted);margin:0;">
-                    <span id="attachment-name" style="color:var(--text-faint);">Click to upload a file</span>
-                </p>
-                <p style="font-size:11px;color:var(--text-faint);margin:4px 0 0;">PDF, DOC, XLS, images up to 10MB</p>
+        <div id="dynamic-fields">
+            <div style="text-align:center;padding:32px;color:var(--text-muted);">
+                <i data-lucide="file-text" style="width:28px;height:28px;color:var(--text-faint);margin-bottom:8px;"></i>
+                <p style="font-size:14px;margin:0;">Select an issue type above to see form fields</p>
             </div>
-            <input type="file" id="attachment" name="attachment" style="display:none;" onchange="handleFileSelect('attachment', 'attachment-name')">
         </div>
 
         <div style="display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--border);padding-top:20px;">
@@ -57,7 +40,8 @@
 function loadFormFields(formId) {
     var container = document.getElementById('dynamic-fields');
     if (!formId) {
-        container.innerHTML = '';
+        container.innerHTML = '<div style="text-align:center;padding:32px;color:var(--text-muted);"><i data-lucide="file-text" style="width:28px;height:28px;color:var(--text-faint);margin-bottom:8px;"></i><p style="font-size:14px;margin:0;">Select an issue type above to see form fields</p></div>';
+        lucide.createIcons();
         return;
     }
 
@@ -93,6 +77,10 @@ function loadFormFields(formId) {
                     html += '<p style="font-size:13px;color:var(--text-muted);margin:0;"><span id="file-name-' + field.name + '" style="color:var(--text-faint);">Click to upload</span></p>';
                     html += '</div>';
                     html += '<input type="file" id="file-' + field.name + '" name="' + field.name + '" style="display:none;" onchange="handleFileSelect(\'file-' + field.name + '\', \'file-name-' + field.name + '\')">';
+                } else if (field.type === 'textarea') {
+                    html += '<textarea id="field-' + field.name + '" name="' + field.name + '" class="form-input" placeholder="' + field.label + '" rows="4"' + (field.required ? ' required' : '') + '></textarea>';
+                } else {
+                    html += '<input type="text" id="field-' + field.name + '" name="' + field.name + '" class="form-input" placeholder="' + field.label + '"' + (field.required ? ' required' : '') + '>';
                 }
 
                 html += '</div>';

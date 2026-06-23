@@ -25,14 +25,11 @@ def create_app(testing=False):
     app = Flask(__name__, static_folder='static', instance_path=instance_dir)
 
     # SECRET_KEY validation
+    # For security, we do not allow a fallback SECRET_KEY in any environment.
+    # A strong, random SECRET_KEY must be provided via environment variable.
     secret = os.getenv('SECRET_KEY')
     if not secret:
-        env = os.getenv('FLASK_ENV', 'development')
-        if env == 'production':
-            raise RuntimeError("FATAL: SECRET_KEY environment variable is not set.")
-        else:
-            warnings.warn("SECRET_KEY not set. Using insecure default for development only.", stacklevel=2)
-            secret = 'dev-only-insecure-key-do-not-use-in-prod'
+        raise RuntimeError("FATAL: SECRET_KEY environment variable is not set. Set SECRET_KEY to a strong random value.")
     app.config['SECRET_KEY'] = secret
 
     # Session cookie security
@@ -123,7 +120,9 @@ def create_app(testing=False):
     with app.app_context():
         from app.models import User, IssueForm, Ticket, ApprovalLog, Notification, AdminAuditLog
         db.create_all()
-        seed_database()
+        # Seed only in explicit development environments to avoid accidental prod/admin creds
+        if os.getenv('FLASK_ENV') == 'development':
+            seed_database()
 
     return app
 
@@ -132,16 +131,21 @@ def seed_database():
     from app.models import User, IssueForm
     if User.query.first() is None:
         from werkzeug.security import generate_password_hash
+        import secrets
+        # Generate a secure temporary password for the seeded admin user
+        _generated_admin_pwd = secrets.token_urlsafe(16)
         admin = User(
             email='admin@company.com',
             display_name='Admin',
-            password_hash=generate_password_hash('Admin123'),
+            password_hash=generate_password_hash(_generated_admin_pwd),
             role='admin',
             is_active=True,
             must_change_password=True
         )
         db.session.add(admin)
         db.session.commit()
+        # Print the generated password to console for initial setup visibility
+        print(f"[SETUP] Seeded default admin user. Email: admin@company.com, Temporary Password: {_generated_admin_pwd}")
 
     if IssueForm.query.first() is None:
         issue_types = [
@@ -172,7 +176,7 @@ def seed_database():
             {"name": "customer_code", "label": "Customer Code", "type": "text", "required": True, "options": ""},
             {"name": "amount", "label": "Amount", "type": "number", "required": True, "options": ""},
             {"name": "currency", "label": "Currency", "type": "dropdown", "required": True,
-             "options": "USD,EUR,GBP,INR,CNY,JPY,SGD,AUD,CAD,MYR,THB,VND"},
+             "options": ["USD", "EUR", "GBP", "INR", "CNY", "JPY", "SGD", "AUD", "CAD", "MYR", "THB", "VND"]},
             {"name": "invoice_number", "label": "Invoice Number", "type": "text", "required": False, "options": ""},
             {"name": "invoice_date", "label": "Invoice Date", "type": "date", "required": False, "options": ""},
             {"name": "reference_notes", "label": "Reference Notes", "type": "text", "required": False, "options": ""},

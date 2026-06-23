@@ -1,3 +1,4 @@
+import os
 from app import create_app
 import re
 
@@ -22,7 +23,7 @@ with app.test_client() as client:
 
         # 4. Login - send token in header (as JS would) + form data
         r = client.post('/auth/login',
-            data={'email': 'admin@company.com', 'password': 'Admin@123'},
+            data={'email': 'admin@company.com', 'password': os.environ.get("TEST_ADMIN_PASSWORD", "")},
             headers={'X-CSRFToken': token},
             follow_redirects=True
         )
