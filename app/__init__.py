@@ -172,7 +172,7 @@ def seed_database():
             {"name": "customer_code", "label": "Customer Code", "type": "text", "required": True, "options": ""},
             {"name": "amount", "label": "Amount", "type": "number", "required": True, "options": ""},
             {"name": "currency", "label": "Currency", "type": "dropdown", "required": True,
-             "options": "USD,EUR,GBP,INR,CNY,JPY,SGD,AUD,CAD,MYR,THB,VND"},
+             "options": ["USD", "EUR", "GBP", "INR", "CNY", "JPY", "SGD", "AUD", "CAD", "MYR", "THB", "VND"]},
             {"name": "invoice_number", "label": "Invoice Number", "type": "text", "required": False, "options": ""},
             {"name": "invoice_date", "label": "Invoice Date", "type": "date", "required": False, "options": ""},
             {"name": "reference_notes", "label": "Reference Notes", "type": "text", "required": False, "options": ""},

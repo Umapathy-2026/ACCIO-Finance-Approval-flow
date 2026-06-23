@@ -58,11 +58,9 @@ def new_ticket():
             return redirect(url_for('req.dashboard'))
 
         form_id = request.form.get('form_id', type=int)
-        subject = request.form.get('subject', '').strip()
-        description = request.form.get('description', '').strip()
 
-        if not form_id or not subject:
-            flash('Please select an issue type and enter a subject.', 'error')
+        if not form_id:
+            flash('Please select an issue type.', 'error')
             return redirect(url_for('req.new_ticket'))
 
         issue_form = IssueForm.query.get_or_404(form_id)
@@ -118,6 +116,20 @@ def new_ticket():
             if approver:
                 assigned_to = approver.id
 
+        # Auto-generate subject from form name if no "subject" field in dynamic fields
+        # Also extract description if the form has a "description" field
+        subject = None
+        description = None
+        for field in issue_form.fields:
+            fname = field.get('name', '')
+            if fname.lower() == 'subject' and payload.get(fname):
+                subject = payload.pop(fname)
+            if fname.lower() == 'description' and payload.get(fname):
+                description = payload.pop(fname)
+
+        if not subject:
+            subject = f'{issue_form.name}'
+
         # Generate ticket number with retry for race conditions
         ticket_number = generate_ticket_number()
 
@@ -157,12 +169,16 @@ def new_ticket():
                     flash('Failed to create ticket due to a concurrency issue. Please try again.', 'error')
                     return redirect(url_for('req.new_ticket'))
 
-        # Notify approver
+        # Notify approver (fail gracefully on Azure free tier)
         if assigned_to:
             approver = User.query.get(assigned_to)
             if approver:
                 review_url = url_for('appr.ticket_detail', ticket_id=ticket.id, _external=True)
-                send_ticket_created(ticket, approver.email, review_url)
+                try:
+                    send_ticket_created(ticket, approver.email, review_url)
+                except Exception:
+                    import logging
+                    logging.exception('Failed to send ticket creation email')
 
         flash(f'Ticket {ticket_number} created successfully!', 'success')
         return redirect(url_for('req.ticket_detail', ticket_id=ticket.id))
@@ -234,7 +250,11 @@ def clarify_ticket(ticket_id):
 
     if ticket.assignee:
         review_url = url_for('appr.ticket_detail', ticket_id=ticket.id, _external=True)
-        send_clarification_provided(ticket, ticket.assignee.email, review_url)
+        try:
+            send_clarification_provided(ticket, ticket.assignee.email, review_url)
+        except Exception:
+            import logging
+            logging.exception('Failed to send clarification notification email')
 
     flash('Clarification submitted successfully.', 'success')
     return redirect(url_for('req.ticket_detail', ticket_id=ticket.id))

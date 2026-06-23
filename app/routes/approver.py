@@ -110,7 +110,11 @@ def approve_ticket(ticket_id):
 
     db.session.commit()
     req_url = url_for('req.ticket_detail', ticket_id=ticket.id, _external=True)
-    send_ticket_approved(ticket, req_url)
+    try:
+        send_ticket_approved(ticket, req_url)
+    except Exception:
+        import logging
+        logging.exception('Failed to send approval notification email')
     flash(f'Ticket {ticket.ticket_number} approved and sent to fulfilment.', 'success')
     return redirect(url_for('appr.ticket_detail', ticket_id=ticket.id))
 
@@ -142,7 +146,11 @@ def reject_ticket(ticket_id):
 
     db.session.commit()
     req_url = url_for('req.ticket_detail', ticket_id=ticket.id, _external=True)
-    send_ticket_rejected(ticket, comment, req_url)
+    try:
+        send_ticket_rejected(ticket, comment, req_url)
+    except Exception:
+        import logging
+        logging.exception('Failed to send rejection notification email')
     flash(f'Ticket {ticket.ticket_number} rejected.', 'error')
     return redirect(url_for('appr.ticket_detail', ticket_id=ticket.id))
 
@@ -174,7 +182,11 @@ def send_back_ticket(ticket_id):
 
     db.session.commit()
     req_url = url_for('req.ticket_detail', ticket_id=ticket.id, _external=True)
-    send_ticket_sent_back(ticket, comment, req_url)
+    try:
+        send_ticket_sent_back(ticket, comment, req_url)
+    except Exception:
+        import logging
+        logging.exception('Failed to send sent-back notification email')
     flash(f'Ticket {ticket.ticket_number} sent back for clarification.', 'info')
     return redirect(url_for('appr.ticket_detail', ticket_id=ticket.id))
 
@@ -249,7 +261,11 @@ def bulk_action():
             log_comment = comment or f'Bulk approved by {current_user.display_name}'
             create_notification(ticket.created_by, 'Ticket Approved', f'Your ticket {ticket.ticket_number} has been approved', url_for('req.ticket_detail', ticket_id=ticket.id))
             req_url = url_for('req.ticket_detail', ticket_id=ticket.id, _external=True)
-            send_ticket_approved(ticket, req_url)
+            try:
+                send_ticket_approved(ticket, req_url)
+            except Exception:
+                import logging
+                logging.exception('Failed to send bulk approval email')
         else:
             ticket.current_status = TicketStatus.REJECTED.value
             ticket.updated_at = now
@@ -257,7 +273,11 @@ def bulk_action():
             log_comment = comment or f'Bulk rejected by {current_user.display_name}'
             create_notification(ticket.created_by, 'Ticket Rejected', f'Your ticket {ticket.ticket_number} has been rejected', url_for('req.ticket_detail', ticket_id=ticket.id))
             req_url = url_for('req.ticket_detail', ticket_id=ticket.id, _external=True)
-            send_ticket_rejected(ticket, comment, req_url)
+            try:
+                send_ticket_rejected(ticket, comment, req_url)
+            except Exception:
+                import logging
+                logging.exception('Failed to send bulk rejection email')
 
         log = ApprovalLog(ticket_id=ticket.id, action_by=current_user.id, action=action_name, comment=log_comment)
         db.session.add(log)

@@ -35,10 +35,18 @@ def get_form_fields(form_id):
     if not form.is_active:
         return jsonify({'error': 'Form is not active'}), 404
 
+    # Normalize options: handle both comma-separated strings (legacy) and arrays
+    normalized_fields = []
+    for field in form.fields:
+        f = dict(field)
+        if f.get('type') == 'dropdown' and isinstance(f.get('options'), str):
+            f['options'] = [o.strip() for o in f['options'].split(',') if o.strip()]
+        normalized_fields.append(f)
+
     return jsonify({
         'id': form.id,
         'name': form.name,
-        'fields': form.fields
+        'fields': normalized_fields
     })
 
 

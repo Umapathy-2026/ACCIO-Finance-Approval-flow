@@ -88,7 +88,7 @@ class Ticket(db.Model):
     form_id = db.Column(db.Integer, db.ForeignKey('issue_forms.id'), nullable=False)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     assigned_to = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
-    subject = db.Column(db.String(500), nullable=False)
+    subject = db.Column(db.String(500), nullable=False, default='')
     description = db.Column(db.Text, nullable=True)
     payload = db.Column(db.JSON, nullable=False, default=dict)
     attachment_name = db.Column(db.String(255), nullable=True)
