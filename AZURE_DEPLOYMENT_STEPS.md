@@ -53,17 +53,66 @@ az webapp deployment source config-zip --resource-group rg-accio-prod --name <yo
 
 In App Service > Configuration > General Settings:
 ```
-gunicorn --bind=0.0.0.0:8000 --workers=2 --timeout=120 --access-logfile=- --error-logfile=- app:app
+gunicorn --bind=0.0.0.0:8000 --workers=1 --timeout=120 --access-logfile=- --error-logfile=- wsgi:app
+# Use 1 worker for SQLite; increase to 2+ after migrating to Azure SQL.
 ```
 
-## Step 5: First-Time Database Initialization
+## Step 5: Migrate Existing Data from SQLite to Azure SQL
+
+Run this BEFORE switching the app to Azure SQL, so existing data is preserved.
+
+**Prerequisites:**
+- Python 3.12 installed locally
+- ODBC Driver 18 for SQL Server installed locally
+- Your Azure SQL connection string ready
+
+**Step 5a — Install ODBC Driver (Local Machine):**
+- **Windows:** Download and install from https://learn.microsoft.com/en-us/sql/connect/odbc/download-odbc-driver-for-sql-server
+- **macOS:** `brew install msodbcsql18`
+- **Linux (Ubuntu/Debian):** Follow the same commands as in `startup.sh`
+
+**Step 5b — Run the migration script:**
+```bash
+# From the project root
+set SQLALCHEMY_DATABASE_URI="mssql+pyodbc://username:password@accio-sql-server.database.windows.net:1433/accio?driver=ODBC+Driver+18+for+SQL+Server&Encrypt=yes&TrustServerCertificate=no"
+
+python migrate_to_azure_sql.py
+```
+
+The script will:
+1. Connect to your existing SQLite database (`instance/ticketing.db`)
+2. Connect to Azure SQL
+3. Create all tables in Azure SQL
+4. Copy all data (users, forms, tickets, logs)
+5. Print a summary of what was copied
+
+**If the script fails:**
+- Check Azure SQL firewall rules (add your IP in Portal → SQL Server → Networking)
+- Verify "Allow Azure services" is enabled in SQL Server firewall
+- Make sure the connection string has the correct password
+
+**Step 5c — Set the connection string in Azure Portal:**
+1. Go to App Service > Configuration > Application Settings
+2. Add a new setting: `SQLALCHEMY_DATABASE_URI` = your Azure SQL connection string
+3. Save (this will restart the app)
+
+**Step 5d — Verify:**
+1. After the app restarts, log in with your existing credentials
+2. Check that users, tickets, and issue forms are all present
+3. Create a new test ticket to confirm data writes to Azure SQL
+
+**To rollback:** Remove the `SQLALCHEMY_DATABASE_URI` setting from App Service > Configuration. The app will fall back to SQLite with all original data intact.
+
+---
+
+## Step 6: First-Time Database Initialization
 
 The app auto-creates tables on first request via `db.create_all()` in `create_app()`.
 On first load, the seed admin account is created:
 - **Email:** admin@company.com
 - **Password:** Admin123 (you will be forced to change this on first login)
 
-## Step 6: Verify Everything Works
+## Step 7: Verify Everything Works
 
 1. Visit your app URL — should see ACCIO login page
 2. Login with admin@company.com / Admin123

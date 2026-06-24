@@ -238,7 +238,7 @@ def reassign_ticket(ticket_id):
         return redirect(url_for('appr.ticket_detail', ticket_id=ticket.id))
 
     new_assignee = User.query.get(new_assignee_id)
-    if not new_assignee or new_assignee.role != 'approver':
+    if not new_assignee or new_assignee.role != 'approver' or not new_assignee.is_active:
         flash('Invalid approver selected.', 'error')
         return redirect(url_for('appr.ticket_detail', ticket_id=ticket.id))
 

@@ -7,6 +7,7 @@ from flask_wtf.csrf import CSRFProtect
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from dotenv import load_dotenv
+from urllib.parse import urlparse
 
 load_dotenv()
 
@@ -14,7 +15,7 @@ db = SQLAlchemy()
 login_manager = LoginManager()
 login_manager.login_view = 'auth.login'
 csrf = CSRFProtect()
-limiter = Limiter(get_remote_address, default_limits=["500 per day", "100 per hour"], storage_uri="memory://")
+limiter = Limiter(get_remote_address, default_limits=["500 per day", "100 per hour"], storage_uri=os.getenv("RATELIMIT_STORAGE_URI", "memory://"))
 
 
 def create_app(testing=False):
@@ -95,6 +96,17 @@ def create_app(testing=False):
                 and request.endpoint not in allowed_endpoints):
             return redirect(url_for('auth.force_change_password'))
 
+    # Security headers
+    @app.after_request
+    def set_security_headers(response):
+        response.headers['X-Frame-Options'] = 'DENY'
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+        response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
+        if is_production:
+            response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+        return response
+
     # Rate limit exceeded handler
     from flask_limiter.errors import RateLimitExceeded
 
@@ -103,7 +115,10 @@ def create_app(testing=False):
         if request.is_json or request.path.startswith('/api'):
             return jsonify(error="Too many requests. Please try again later."), 429
         flash("Too many requests. Please wait a moment and try again.", "warning")
-        return redirect(request.referrer or url_for('auth.login'))
+        referrer = request.referrer or ''
+        parsed = urlparse(referrer)
+        safe_back = referrer if (not parsed.netloc or parsed.netloc == request.host) else ''
+        return redirect(safe_back or url_for('auth.login'))
 
     from app.routes.auth import auth_bp
     from app.routes.requester import req_bp

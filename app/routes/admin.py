@@ -21,7 +21,7 @@ def log_admin_action(action, target_type=None, target_id=None, details=None):
         target_type=target_type,
         target_id=target_id,
         details=details or {},
-        ip_address=request.remote_addr,
+        ip_address=request.headers.get('X-Forwarded-For', request.remote_addr).split(',')[0].strip(),
         timestamp=datetime.now(timezone.utc)
     )
     db.session.add(entry)
@@ -153,6 +153,12 @@ def edit_user(user_id):
 
     password = request.form.get('password', '')
     if password:
+        from app.routes.auth import validate_password_strength
+        pw_errors = validate_password_strength(password)
+        if pw_errors:
+            for err in pw_errors:
+                flash(err, 'error')
+            return redirect(url_for('admin.users'))
         user.password_hash = generate_password_hash(password)
 
     details = {'role_changed': old_role != role}
@@ -424,7 +430,7 @@ def export_tickets():
             t.assignee.display_name if t.assignee else '',
             t.created_at.strftime('%Y-%m-%d %H:%M') if t.created_at else '',
             t.updated_at.strftime('%Y-%m-%d %H:%M') if t.updated_at else '',
-            (datetime.utcnow() - t.created_at).days if t.created_at else 0,
+            (datetime.now(timezone.utc).replace(tzinfo=None) - t.created_at).days if t.created_at else 0,
             t.approval_logs.count()
         ]
         for col, val in enumerate(row_data, 1):
@@ -469,11 +475,12 @@ def export_audit():
 
     query = AdminAuditLog.query
     if search:
+        from sqlalchemy import cast, String
         query = query.filter(
             db.or_(
                 AdminAuditLog.action.ilike(f'%{search}%'),
                 AdminAuditLog.target_type.ilike(f'%{search}%'),
-                AdminAuditLog.target_id.ilike(f'%{search}%')
+                cast(AdminAuditLog.target_id, String).ilike(f'%{search}%')
             )
         )
     if action_filter:

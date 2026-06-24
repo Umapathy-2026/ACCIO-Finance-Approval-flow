@@ -13,4 +13,4 @@
 ) &
 
 # Start gunicorn immediately
-gunicorn --config gunicorn.conf.py app:app
+gunicorn --config gunicorn.conf.py wsgi:app
