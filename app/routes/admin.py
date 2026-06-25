@@ -240,7 +240,9 @@ def deactivate_user(user_id):
     reassigned_count = 0
 
     if created_open and reassign_created_to:
-        new_assignee = User.query.get(reassign_created_to)
+        new_assignee = User.query.filter_by(
+            id=reassign_created_to, role='approver', is_active=True
+        ).first()
         if new_assignee:
             for ticket in created_open:
                 ticket.assigned_to = reassign_created_to
@@ -253,7 +255,9 @@ def deactivate_user(user_id):
                 reassigned_count += 1
 
     if assigned_open and reassign_assigned_to:
-        new_approver = User.query.get(reassign_assigned_to)
+        new_approver = User.query.filter_by(
+            id=reassign_assigned_to, role='approver', is_active=True
+        ).first()
         if new_approver:
             for ticket in assigned_open:
                 ticket.assigned_to = reassign_assigned_to

@@ -21,9 +21,10 @@ def health():
             'timestamp': datetime.now(timezone.utc).isoformat()
         }), 200
     except Exception as e:
+        current_app.logger.error(f'Health check DB failure: {e}')
         return jsonify({
             'status': 'error',
-            'db': str(e)
+            'db': 'unavailable'
         }), 503
 
 

@@ -266,7 +266,7 @@ def reassign_ticket(ticket_id):
 @login_required
 @role_required('approver', 'admin')
 def bulk_action():
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
     ticket_ids = data.get('ticket_ids', [])
     action = data.get('action', '')
     comment = data.get('comment', '')

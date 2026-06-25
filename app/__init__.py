@@ -47,12 +47,9 @@ def create_app(testing=False):
     app.config['SQLALCHEMY_DATABASE_URI'] = db_uri
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-    # Track whether we ultimately connected to Azure SQL or fell back to SQLite
-    _using_azure_sql = False
-
     # Azure SQL pool settings (only if using mssql)
-    if 'mssql' in db_uri or 'pyodbc' in db_uri:
-        _using_azure_sql = True
+    _using_azure_sql = 'mssql' in db_uri or 'pyodbc' in db_uri
+    if _using_azure_sql:
         app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
             'pool_pre_ping': True,
             'pool_recycle': 1800,
@@ -139,24 +136,12 @@ def create_app(testing=False):
     with app.app_context():
         from app.models import User, IssueForm, Ticket, ApprovalLog, Notification, AdminAuditLog
 
-        # Try to connect to the configured database; fall back to SQLite if Azure SQL fails
+        # Create all tables. If the database is unreachable, let the error propagate
+        # so Azure App Service reports a clear startup failure rather than silently
+        # routing data to SQLite. A visible crash is safer than undetected data loss.
+        db.create_all()
         if _using_azure_sql:
-            try:
-                db.create_all()
-                app.logger.info("Connected to Azure SQL successfully.")
-            except Exception as e:
-                app.logger.error(f"Azure SQL connection failed: {e}")
-                app.logger.warning("Falling back to SQLite database. Azure SQL will be retried on next restart.")
-                # Fall back to SQLite so the app starts
-                sqlite_uri = 'sqlite:///' + os.path.join(instance_dir, 'ticketing.db')
-                app.config['SQLALCHEMY_DATABASE_URI'] = sqlite_uri
-                app.config.pop('SQLALCHEMY_ENGINE_OPTIONS', None)
-                from sqlalchemy import create_engine
-                db.engine = create_engine(sqlite_uri)
-                db.session.remove()
-                db.create_all()
-        else:
-            db.create_all()
+            app.logger.info("Connected to Azure SQL successfully.")
 
         # Seed only in explicit development environments to avoid accidental prod/admin creds
         if os.getenv('FLASK_ENV') == 'development':
